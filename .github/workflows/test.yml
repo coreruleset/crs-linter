@@ -1,0 +1,30 @@
+---
+name: Regression Tests
+
+on: [push, pull_request]
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        crs-version: ['4.10.0']
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      - name: "Checkout repo"
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: "Run tests for ${{ matrix.crs-version }}"
+        run: |
+          curl -L https://github.com/coreruleset/coreruleset/archive/refs/tags/v${{ matrix.crs-version }}-minimal.tar.gz -o - | tar xzvf - --strip-components=1 --wildcards "*/rules/*" "crs-setup.conf.example"
+          poetry install -v
+          poetry run pytest -vs
+          poetry run crs-linter --output=github -r crs-setup.conf.example -r rules/*.conf -t util/APPROVED_TAGS -v ${{ matrix.crs-version }}
+
