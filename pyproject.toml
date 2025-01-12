@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "crs-linter"
+version = "0.1.0"
+description = "CRS linter"
+authors = [
+    "Ervin Hegedus <airween@gmail.com>",
+    "Felipe Zipitria <felipe.zipitria@owasp.org>"
+]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/coreruleset/crs-linter"
+repository = "https://github.com/coreruleset/crs-linter"
+documentation = "https://github.com/coreruleset/crs-linter"
+
+keywords = ["owasp", "crs", "linter"]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+packages = [
+    { include = "crs_linter", from = "src" }
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/coreruleset/crs-linter/issues"
+
+# Requirements
+[tool.poetry.dependencies]
+python = ">=3.7,<4.0"
+msc_pyparser = ">=1.2.1"
+
+[tool.poetry.scripts]
+secrules-parser = 'crs_linter.cli:main'
+
+[tool.poetry.group.test.dependencies]
+pytest = "*"
+
+[tool.semantic_release]
+version_variable = "pyproject.toml:version"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
