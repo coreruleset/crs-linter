@@ -1,11 +1,26 @@
+import glob
+
 import pytest
+import msc_pyparser
 
-@pytest.fixture
+config = """
+SecRule REQUEST_COOKIES|!REQUEST_COOKIES_NAMES|REQUEST_FILENAME|ARGS_NAMES|ARGS|XML:/* "@rx .*" "id:1,phase:2,t:none,log,deny,status:403,msg:'test'"
+"""
+
+@pytest.fixture(scope="session")
 def data():
-    return "SecRule REQUEST_COOKIES|!REQUEST_COOKIES_NAMES|REQUEST_FILENAME|ARGS_NAMES|ARGS|XML:/* \"@rx .*\""
+    mparser = msc_pyparser.MSCParser()
+    mparser.parser.parse(config)
+
+    return mparser.configlines
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def txvars():
-    return "REQUEST_COOKIES|!REQUEST_COOKIES_NAMES|REQUEST_FILENAME|ARGS_NAMES|ARGS|XML:/*"
+    return {}
 
+
+@pytest.fixture(scope="session")
+def crs_files() -> list:
+    files = glob.glob("../examples/*.conf")
+    yield files
