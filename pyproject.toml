@@ -5,18 +5,18 @@ description = "CRS linter"
 authors = [
   {name = "Ervin Hegedus", email = "airween@gmail.com"}
 ]
+requires-python = ">=3.9"
 license = "Apache-2.0"
 readme = "README.md"
-homepage = "https://github.com/coreruleset/crs-linter"
-repository = "https://github.com/coreruleset/crs-linter"
-documentation = "https://github.com/coreruleset/crs-linter"
-requires-python = ">=3.9"
+Issues = "https://github.com/coreruleset/crs-linter/issues"
+Homepage = "https://github.com/coreruleset/crs-linter"
+Repository = "https://github.com/coreruleset/crs-linter.git"
 
-keywords = ["owasp", "crs", "linter"]
+keywords = ["OWASP", "CRS", "linter"]
 
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 
@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.scripts]
-secrules-parser = 'crs_linter.cli:main'
+crs-linter = 'crs_linter.cli:main'
 
 [dependency-groups]
 dev = [

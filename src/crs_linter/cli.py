@@ -6,7 +6,7 @@ import msc_pyparser
 import difflib
 import argparse
 import re
-from linter import Check
+from crs_linter.linter import Check
 
 
 oformat = "native"
