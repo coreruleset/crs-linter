@@ -1,0 +1,46 @@
+[project]
+name = "crs-linter"
+version = "0.1.0"
+description = "CRS linter"
+authors = [
+  {name = "Ervin Hegedus", email = "airween@gmail.com"}
+]
+requires-python = ">=3.9"
+license = "Apache-2.0"
+readme = "README.md"
+Issues = "https://github.com/coreruleset/crs-linter/issues"
+Homepage = "https://github.com/coreruleset/crs-linter"
+Repository = "https://github.com/coreruleset/crs-linter.git"
+
+keywords = ["OWASP", "CRS", "linter"]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+packages = [
+    { include = "crs_linter", from = "src" }
+]
+
+# Requirements
+dependencies = [
+    "msc_pyparser >=1.2.1"
+]
+
+[project.scripts]
+crs-linter = 'crs_linter.cli:main'
+
+[dependency-groups]
+dev = [
+  "pytest >=8.1.1,<9"
+]
+
+[tool.semantic_release]
+version_variable = "pyproject.toml:version"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+

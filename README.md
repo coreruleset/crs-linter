@@ -1,26 +1,18 @@
-crs_rules_check
-===============
+# CRS Linter
 
-Welcome to the `crs_rules_check` documentation.
+Welcome to the CRS Linter documentation.
 
-Prerequisites
-=============
+## Prerequisites
 
-To run the tool, you need:
-
-+ a **Python 3** interpreter
-+ **msc_pyparser** - a SecRule parser (>=1.2.1)
-
-`msc_pyparser` was written in Python 3 and has not been tested with Python 2, therefore you have to use Python 3.
+To run this tool, you need Python 3.7 or later.
 
 The best way to install the required packages just run
 
 ```
-pip3 install -r requirements.txt
+pip3 install
 ```
 
-How does it work
-================
+## How does it work
 
 The script expects an argument at least - this would be a single file or a file list, eg: `/path/to/coreruleset/*.conf`.
 
@@ -71,13 +63,13 @@ If everything is fine, rule returns with 0.
 Normally, you should run the script:
 
 ```
-./util/crs-rules-check/rules-check.py -r crs-setup.conf.example -r rules/*.conf
+crs-linter -r crs-setup.conf.example -r rules/*.conf
 ```
 
 Optionally, you can add the option `--output=github` (default value is `native`):
 
 ```
-./util/crs-rules-check/rules-check.py --output=github -r crs-setup.conf.example -r rules/*.conf
+crs-linter --output=github -r crs-setup.conf.example -r rules/*.conf
 ```
 
 In this case, each line will have a prefix, which could be `::debug` or `::error`. See [this](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-error-message).
@@ -107,7 +99,7 @@ As you can see, there are two `"` missing above: the first one after the `chain`
 Check it:
 
 ```
-$ ./rules-check.py -r examples/test1.conf
+crs-linter -r examples/test1.conf
 Config file: examples/test1.conf
 Can't parse config file: examples/test1.conf
   file=examples/test1.conf, line=8, endLine=8, title=Parser error: can't parse file
@@ -129,7 +121,7 @@ SecRule REQUEST_URI "@beginswith /index.php" \
 In this rule the operator is lowercase. Mod_security allows both form.
 
 ```
-$ ./rules-check.py -r examples/test2.conf
+crs-linter -r examples/test2.conf
 Config file: examples/test2.conf
  Parsing ok.
  Ignore case check found error(s)
@@ -154,7 +146,7 @@ SecRule REQUEST_URI "@beginsWith /index.php" \
 In this rule, the `phase` and `id` are interchanged. As [documentation](https://github.com/coreruleset/coreruleset/wiki/Order-of-ModSecurity-Actions-in-CRS-rules) says, the first action **must** be the `id`, the second one is the `phase`.
 
 ```
-$ ./rules-check.py -r examples/test3.conf
+crs-linter -r examples/test3.conf
 Config file: examples/test3.conf
  Parsing ok.
  Ignore case check ok.
@@ -190,7 +182,7 @@ SecRule ARGS "@rx foo" \
 In this rule set, the first line and the rule with `id:3` first action have an extra leading space. As [documentation](https://github.com/coreruleset/coreruleset/blob/v3.4/dev/CONTRIBUTING.md#general-formatting-guidelines-for-rules-contributions) describes, CRS has a strict indentation rules. The script checks the indentation with help of Python's [difflib](https://docs.python.org/3.9/library/difflib.html).
 
 ```
-$ ./rules-check.py -r examples/test4.conf
+crs-linter -r examples/test4.conf
 Config file: examples/test4.conf
  Parsing ok.
  Ignore case check ok.
@@ -233,7 +225,7 @@ SecRule REQUEST_URI "index.php" \
 In this rule, the operator is missing. As [ModSecurity documentation](https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-(v2.x)#rx) says "the rules that do not explicitly specify an operator default to @rx". In CRS, this isn't allowed.
 
 ```
-$ ./rules-check.py -r examples/test5.conf
+$ crs-linter -r examples/test5.conf
 Config file: examples/test5.conf
  Parsing ok.
  Ignore case check found error(s)
@@ -294,7 +286,7 @@ SecRule ARGS_NAMES "@rx bar" \
 In this rule file, there are two rules with same `id`.
 
 ```
-$ util/crs-rules-check/rules-check.py -r util/crs-rules-check/examples/test7.conf
+crs-linter -r util/crs-rules-check/examples/test7.conf
 Config file: util/crs-rules-check/examples/test7.conf
  Parsing ok.
 Checking parsed rules...
@@ -380,7 +372,7 @@ In this rule file, there are more problems:
 * rule 920162 increments anomaly_score_pl2, but it's in PL1
 
 ```
-$ ./rules-check.py -r examples/test8.conf
+crs-linter -r examples/test8.conf
 Config file: examples/test8.conf
  Parsing ok.
 Checking parsed rules...
@@ -442,7 +434,7 @@ SecRule ARGS "@rx (?i)foo" \
 Rule 1 uses a combination of t:lowercase and the (?i) in the regex
 
 ```
-./rules-check.py -r examples/test10.conf
+crs-linter -r examples/test10.conf
 Config file: examples/test10.conf
  Parsing ok.
 Checking parsed rules...
@@ -480,7 +472,7 @@ SecRule REQUEST_URI "@rx index.php" \
 Rule 1 does not have `tag:OWASP_CRS`
 
 ```
-$ ./rules-check.py -r examples/test11.conf -t ../APPROVED_TAGS
+crs-linter -r examples/test11.conf -t ../APPROVED_TAGS
 Config file: examples/test11.conf
  Parsing ok.
 Checking parsed rules...
@@ -532,7 +524,7 @@ Rule 1 does not have `ver`.
 Rule 2 has incorrect `ver` value.
 
 ```
-$ ./rules-check.py -r examples/test12.conf -t ../APPROVED_TAGS
+crs-linter -r examples/test12.conf -t ../APPROVED_TAGS
 Config file: examples/test12.conf
  Parsing ok.
 Checking parsed rules...
@@ -601,7 +593,7 @@ Rule 2 is the valid form.
 Rule 3 is a chained rule and it uses `TX:0` in second rule, but first rule does not have `capture`.
 
 ```
-$ ./rules-check.py -r examples/test13.conf -t ../APPROVED_TAGS -v "4.7.0-dev"
+crs-linter -r examples/test13.conf -t ../APPROVED_TAGS -v "4.7.0-dev"
 Config file: examples/test13.conf
  Parsing ok.
 Checking parsed rules...
