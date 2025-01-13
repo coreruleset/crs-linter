@@ -16,6 +16,9 @@ jobs:
       - name: "Checkout repo"
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Set up Python 3
         uses: actions/setup-python@v5
         with:
@@ -23,8 +26,8 @@ jobs:
 
       - name: "Run tests for ${{ matrix.crs-version }}"
         run: |
-          curl -SLs https://github.com/coreruleset/coreruleset/releases/download/v${{ matrix.crs-version }}/coreruleset-${{ matrix.crs-version }}-minimal.tar.gz -o - | tar xzvf - --strip-components=1 --wildcards "*/rules/*" --wildcards "*/crs-setup.conf.example"
-          poetry install -v
-          poetry run pytest -vs
-          poetry run crs-linter --output=github -r crs-setup.conf.example -r rules/*.conf -t util/APPROVED_TAGS -v ${{ matrix.crs-version }}
+          curl -SLs https://github.com/coreruleset/coreruleset/releases/download/v${{ matrix.crs-version }}/coreruleset-${{ matrix.crs-version }}-minimal.tar.gz -o - | tar xzvf - --strip-components=1 --wildcards "*/rules/*" --wildcards "*/crs-setup.conf.example" 
+          uv sync --all-extras --dev
+          uv run pytest -vs
+          uv run crs-linter --output=github -r crs-setup.conf.example -r rules/*.conf -t util/APPROVED_TAGS -v ${{ matrix.crs-version }}
 
