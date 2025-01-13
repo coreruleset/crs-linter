@@ -6,10 +6,11 @@ Welcome to the CRS Linter documentation.
 
 To run this tool, you need Python 3.7 or later.
 
-The best way to install the required packages just run
+:warning: To be released as pypi package!
 
+To install, run:
 ```
-pip3 install
+pip3 install crs-linter
 ```
 
 ## How does it work
