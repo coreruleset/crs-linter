@@ -7,6 +7,7 @@ def test_parser():
 
     assert p is not None
 
+
 def test_check_ignore_proper_case():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
@@ -14,6 +15,7 @@ def test_check_ignore_proper_case():
     c.check_ignore_case()
 
     assert len(c.caseerror) == 0
+
 
 def test_check_ignore_case_fail_invalid_action_case():
     """ Two actions are in the wrong case. """
@@ -24,6 +26,7 @@ def test_check_ignore_case_fail_invalid_action_case():
 
     assert len(c.caseerror) == 2
 
+
 def test_check_action_order():
     """ Test that the actions are in the correct order. """
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,nolog"'
@@ -33,6 +36,7 @@ def test_check_action_order():
 
     assert len(c.orderacts) == 0
 
+
 def test_check_action_fail_wrong_order():
     """ Test if the action is in the wrong order. status should go before log """
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
@@ -41,6 +45,7 @@ def test_check_action_fail_wrong_order():
     c.check_action_order()
 
     assert len(c.orderacts) == 1
+
 
 def test_check_ctl_auditctl_log_parts():
     """ Test that there is no ctl:auditLogParts action in any rules"""
@@ -87,27 +92,27 @@ SecRule &TX:detection_paranoia_level "@eq 0" \
 
 
 def test_check_tx_variable_fail_nonexisting():
-    t = """SecRule &TX:blocking_paranoia "@eq 0" \
-        "id:901120,\
-        phase:1,\
-        pass,\
-        nolog,\
-        ver:'OWASP_CRS/4.0.0-rc1',\
-        setvar:'tx.blocking_paranoia_broken=1'"
+    t = """SecRule TX:foo "@rx bar" \
+    "id:1001,\
+    phase:1,\
+    pass,\
+    nolog"
 
-    SecRule &TX:detection_paranoia_level "@eq 0" \
-        "id:901125,\
-        phase:1,\
-        pass,\
-        nolog,\
-        ver:'OWASP_CRS/4.0.0-rc1',\
-        setvar:'tx.detection_paranoia_level=%{TX.blocking_paranoia_level}'"
+SecRule ARGS "@rx ^.*$" \
+    "id:1002,\
+    phase:1,\
+    pass,\
+    nolog,\
+    setvar:tx.bar=1"
         """
     p = parse_config(t)
     c = Check(p)
+    c.collect_tx_variable()
     c.check_tx_variable()
 
+    # Shouldn't this be 2?
     assert len(c.undef_txvars) == 1
+
 
 def test_check_pl_consistency():
     t = """
@@ -126,13 +131,44 @@ def test_check_pl_consistency():
     setvar:'tx.inbound_anomaly_score_pl3=0',\
     setvar:'tx.inbound_anomaly_score_pl4=0'"
     
-    SecRule &TX:error_anomaly_score "@eq 0" \
-    "id:901141,\
+    SecRule TX:DETECTION_PARANOIA_LEVEL "@lt 1" "id:944011,phase:1,pass,nolog,tag:'OWASP_CRS',ver:'OWASP_CRS/4.11.0-dev',skipAfter:END-REQUEST-944-APPLICATION-ATTACK-JAVA"
+    
+    SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \
+    "id:920160,\
+    phase:1,\
+    block,\
+    t:none,\
+    tag:'paranoia-level/1',\
+    severity:'CRITICAL',\
+    setvar:'tx.inbound_anomaly_score_pl1=+%{tx.critical_anomaly_score}'"
+    """
+    p = parse_config(t)
+    c = Check(p)
+    c.collect_tx_variable()
+    c.check_pl_consistency()
+
+    assert len(c.plscores) == 0
+
+
+def test_check_pl_consistency_fail():
+    t = """
+    SecAction \
+    "id:901200,\
     phase:1,\
     pass,\
+    t:none,\
     nolog,\
-    ver:'OWASP_CRS/4.0.0-rc1',\
-    setvar:'tx.error_anomaly_score=4'"
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.11.0-dev',\
+    setvar:'tx.blocking_inbound_anomaly_score=0',\
+    setvar:'tx.detection_inbound_anomaly_score=0',\
+    setvar:'tx.inbound_anomaly_score_pl1=0',\
+    setvar:'tx.inbound_anomaly_score_pl2=0',\
+    setvar:'tx.inbound_anomaly_score_pl3=0',\
+    setvar:'tx.inbound_anomaly_score_pl4=0'"
+
+    SecRule TX:DETECTION_PARANOIA_LEVEL "@lt 1" "id:944011,phase:1,pass,nolog,tag:'OWASP_CRS',ver:'OWASP_CRS/4.11.0-dev',skipAfter:END-REQUEST-944-APPLICATION-ATTACK-JAVA"
+
     SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \
     "id:920160,\
     phase:1,\
@@ -144,6 +180,7 @@ def test_check_pl_consistency():
     """
     p = parse_config(t)
     c = Check(p)
+    c.collect_tx_variable()
     c.check_pl_consistency()
 
     assert len(c.plscores) == 1
@@ -182,6 +219,7 @@ def test_check_tags_fail():
 
     assert len(c.newtags) == 1
 
+
 def test_check_lowercase_ignorecase():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
@@ -206,6 +244,7 @@ SecRule REQUEST_URI "@rx index.php" \
     c.check_crs_tag()
 
     assert len(c.nocrstags) == 0
+
 
 def test_check_crs_tag_fail():
     t = """
@@ -241,6 +280,7 @@ SecRule REQUEST_URI "@rx index.php" \
 
     assert len(c.noveract) == 0
 
+
 def test_check_ver_action_fail(crsversion):
     t = """
 SecRule REQUEST_URI "@rx index.php" \
@@ -257,6 +297,7 @@ SecRule REQUEST_URI "@rx index.php" \
     c.check_ver_action(crsversion)
 
     assert len(c.noveract) == 1
+
 
 def test_check_capture_action():
     t = """
@@ -277,6 +318,7 @@ SecRule ARGS "@rx attack" \
     c.check_capture_action()
 
     assert len(c.nocaptact) == 0
+
 
 def test_check_capture_action_fail():
     t = """

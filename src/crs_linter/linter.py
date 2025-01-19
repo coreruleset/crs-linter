@@ -589,7 +589,7 @@ class Check(object):
                                     'message': "invalid value for anomaly_score_pl%d: %s with severity %s, rule id: %d" % (
                                     int(t[-1]), val, severity, ruleid)
                                 })
-                        # variable has found so we need to mark it as used
+                        # variable was found so we need to mark it as used
                         self.globtxvars[t]['used'] = True
 
                 # reset local variables if we are done with a rule <==> no more 'chain' action
