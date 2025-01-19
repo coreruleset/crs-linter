@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 import logging
-import subprocess
+import pathlib
 import sys
 import msc_pyparser
 import difflib
 import argparse
 import re
-from crs_linter.linter import Check
+from dulwich import porcelain
+from dulwich.repo import Repo
+from dulwich.contrib.release_robot import get_current_version, get_recent_tags
+from semver import Version
 
+from crs_linter.linter import Check
 
 oformat = "native"
 
@@ -17,23 +21,29 @@ def errmsg(msg):
     else:
         print(msg)
 
+
 def errmsgf(msg):
     if oformat == "github":
         if 'message' in msg and msg['message'].strip() != "":
-            print("::error%sfile={file},line={line},endLine={endLine},title={title}:: {message}".format(**msg) % (msg['indent']*" "))
+            print("::error%sfile={file},line={line},endLine={endLine},title={title}:: {message}".format(**msg) % (
+                        msg['indent'] * " "))
         else:
-            print("::error%sfile={file},line={line},endLine={endLine},title={title}::".format(**msg) % (msg['indent']*" "))
+            print("::error%sfile={file},line={line},endLine={endLine},title={title}::".format(**msg) % (
+                        msg['indent'] * " "))
     else:
         if 'message' in msg and msg['message'].strip() != "":
-            print("%sfile={file}, line={line}, endLine={endLine}, title={title}: {message}".format(**msg) % (msg['indent']*" "))
+            print("%sfile={file}, line={line}, endLine={endLine}, title={title}: {message}".format(**msg) % (
+                        msg['indent'] * " "))
         else:
-            print("%sfile={file}, line={line}, endLine={endLine}, title={title}".format(**msg) % (msg['indent']*" "))
+            print("%sfile={file}, line={line}, endLine={endLine}, title={title}".format(**msg) % (msg['indent'] * " "))
+
 
 def msg(msg):
     if oformat == "github":
         print("::debug::%s" % (msg))
     else:
         print(msg)
+
 
 def remove_comments(data):
     """
@@ -75,8 +85,8 @@ def remove_comments(data):
     """
     _data = []  # new structure by lines
     lines = data.split("\n")
-    marks = re.compile("^#(| *)(SecRule|SecAction)", re.I) # regex what catches the rules
-    state = 0   # hold the state of the parser
+    marks = re.compile("^#(| *)(SecRule|SecAction)", re.I)  # regex what catches the rules
+    state = 0  # hold the state of the parser
     for l in lines:
         # if the line starts with #SecRule, #SecAction, # SecRule, # SecAction, set the marker
         if marks.match(l):
@@ -95,7 +105,8 @@ def remove_comments(data):
 
     return data
 
-def generate_version_string():
+
+def generate_version_string(directory):
     """
     generate version string from git tag
     program calls "git describe --tags" and converts it to version
@@ -103,24 +114,24 @@ def generate_version_string():
       v4.5.0-6-g872a90ab -> "4.6.0-dev"
       v4.5.0-0-abcd01234 -> "4.5.0"
     """
-    result = subprocess.run(["git", "describe", "--tags", "--match", "v*.*.*"], capture_output=True, text=True)
-    version = re.sub("^v", "", result.stdout.strip())
-    print(f"Latest tag found: {version}")
-    ver, commits = version.split("-")[0:2]
-    if int(commits) > 0:
-        version = ver.split(".")
-        version[1] = str((int(version[1]) + 1))
-        ver = f"""{".".join(version)}-dev"""
-    return ver
+
+    current_version = Version.parse(get_current_version(projdir=str(directory.resolve())))
+    next_minor = current_version.bump_minor()
+    version = next_minor.replace(prerelease="dev")
+    print(version)
+
+    return f"OWASP_CRS/{version}"
 
 
 def main():
     logger = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description="CRS Rules Check tool")
     parser.add_argument("-o", "--output", dest="output", help="Output format native[default]|github", required=False)
+    parser.add_argument("-d", "--directory", dest="directory", type=pathlib.Path,
+                        help='Directory path to CRS git repository', required=False)
     parser.add_argument("-r", "--rules", metavar='/path/to/coreruleset/*.conf', type=str,
-                            nargs='*', help='Directory path to CRS rules', required=True,
-                            action="append")
+                        nargs='*', help='Directory path to CRS rules', required=True,
+                        action="append")
     parser.add_argument("-t", "--tags-list", dest="tagslist", help="Path to file with permitted tags", required=True)
     parser.add_argument("-v", "--version", dest="version", help="Version string", required=False)
     args = parser.parse_args()
@@ -136,7 +147,7 @@ def main():
 
     if args.version is None:
         # if no --version/-v was given, get version from git describe --tags output
-        crsversion = generate_version_string()
+        crsversion = generate_version_string(args.directory)
     else:
         crsversion = args.version.strip()
     # if no "OWASP_CRS/" prefix, append it
@@ -208,7 +219,7 @@ def main():
     for f in parsed_structs.keys():
 
         msg(f)
-        c = Check(parsed_structs[f], txvars)
+        c = Check(parsed_structs[f], f, txvars)
 
         ### check case usings
         c.check_ignore_case()
@@ -301,7 +312,7 @@ def main():
         #   this method collects the TX variables, which set via a
         #   `setvar` action anywhere
         #   this method does not check any mandatory clause
-        c.collect_tx_variable(f)
+        c.collect_tx_variable()
 
         ### check duplicate ID's
         #   c.dupes filled during the tx variable collected
@@ -340,7 +351,7 @@ def main():
                 retval = 1
 
         ### check existence of used TX variables
-        c.check_tx_variable(f)
+        c.check_tx_variable()
         if len(c.undef_txvars) == 0:
             msg(" All TX variables are set.")
         else:
@@ -352,7 +363,7 @@ def main():
                 errmsgf(a)
                 retval = 1
         ### check new unlisted tags
-        c.check_tags(f, tags)
+        c.check_tags(tags)
         if len(c.newtags) == 0:
             msg(" No new tags added.")
         else:
@@ -434,4 +445,4 @@ def main():
 
 
 if __name__ == "__main__":
-   main()
+    main()
