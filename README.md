@@ -254,7 +254,7 @@ The `ctl:auditLogParts=+E` (or any kind of `ctl:auditLogParts`) is not allowed i
 See the CRS PR [#3034](https://github.com/coreruleset/coreruleset/pull/3034)
 
 ```
-$ util/crs-rules-check/rules-check.py -r util/crs-rules-check/examples/test6.conf
+crs-linter -r util/crs-rules-check/examples/test6.conf
 Config file: util/crs-rules-check/examples/test6.conf
  Parsing ok.
  Ignore case check ok.
