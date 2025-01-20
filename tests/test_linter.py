@@ -110,7 +110,6 @@ SecRule ARGS "@rx ^.*$" \
     c.collect_tx_variable()
     c.check_tx_variable()
 
-    # Shouldn't this be 2?
     assert len(c.undef_txvars) == 1
 
 
