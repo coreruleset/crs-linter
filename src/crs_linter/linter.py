@@ -90,6 +90,11 @@ class Check(object):
         self.current_ruleid = 0  # holds the rule id
         self.curr_lineno = 0  # current line number
         self.chained = False  # holds the chained flag
+        self.re_tx_var = re.compile(r"%\{\}")
+        self.filename = filename
+
+        # Any of these variables below are used to store the errors
+
         self.caseerror = []  # list of case mismatch errors
         self.orderacts = []  # list of ordered action errors
         self.auditlogparts = []  # list of wrong ctl:auditLogParts
@@ -104,8 +109,12 @@ class Check(object):
         self.noveract = []  # list of rules without ver action or incorrect ver
         self.nocaptact = []  # list of rules which uses TX.N without previous 'capture'
 
-        self.re_tx_var = re.compile(r"%\{\}")
-        self.filename = filename
+    def is_error(self):
+        """ Returns True if any error is found """
+        return len(self.caseerror) > 0 or len(self.orderacts) > 0 or len(self.auditlogparts) > 0 or len(
+            self.undef_txvars) > 0 or len(self.pltags) > 0 or len(self.plscores) > 0 or len(self.dupes) > 0 or len(
+            self.ids) > 0 or len(self.newtags) > 0 or len(self.ignorecase) > 0 or len(self.nocrstags) > 0 or len(
+            self.noveract) > 0 or len(self.nocaptact) > 0
 
     def store_error(self, msg):
         # store the error msg in the list
