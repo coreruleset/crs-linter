@@ -146,7 +146,7 @@ def get_crs_version(directory, version=None):
         crs_version = generate_version_string(directory)
     else:
         crs_version = version.strip()
-    # if no "OWASP_CRS/" prefix, append it
+    # if no "OWASP_CRS/" prefix, prepend it
     if not crs_version.startswith("OWASP_CRS/"):
         crs_version = "OWASP_CRS/" + crs_version
 
@@ -261,7 +261,7 @@ def main(argv):
     retval = 0
     args = parse_args(argv)
 
-    files =  glob.glob(args.crs_rules[0])
+    files = glob.glob(args.crs_rules[0])
 
     if args.output is not None:
         if args.output not in ["native", "github"]:
