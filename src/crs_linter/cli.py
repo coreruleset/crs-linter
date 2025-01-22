@@ -246,12 +246,12 @@ def read_files(filenames):
     return parsed
 
 def parse_args(argv):
-    parser = argparse.ArgumentParser(description="CRS Rules Check tool")
+    parser = argparse.ArgumentParser(prog="crs-linter", description="CRS Rules Check tool")
     parser.add_argument("-o", "--output", dest="output", help="Output format native[default]|github", required=False)
     parser.add_argument("-d", "--directory", dest="directory", default=pathlib.Path("."), type=pathlib.Path,
                         help='Directory path to CRS git repository', required=True)
-    parser.add_argument("-r", "--rules", type=str, dest="crs_rules", nargs='*',
-                        help='Directory path to CRS rules', required=True)
+    parser.add_argument("-r", "--rules", type=str, dest="crs_rules",
+                        help='CRS rules file to check. Can be used multiple times.', action='append', required=True)
     parser.add_argument("-t", "--tags-list", dest="tagslist", help="Path to file with permitted tags", required=True)
     parser.add_argument("-v", "--version", dest="version", help="Version string", required=False)
 
@@ -261,7 +261,9 @@ def main():
     retval = 0
     args = parse_args(sys.argv[1:])
 
-    files = glob.glob(args.crs_rules[0])
+    files = []
+    for r in args.crs_rules:
+        files.extend(glob.glob(r))
 
     if args.output is not None:
         if args.output not in ["native", "github"]:
