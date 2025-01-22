@@ -257,9 +257,9 @@ def parse_args(argv):
 
     return parser.parse_args(argv)
 
-def main(argv):
+def main():
     retval = 0
-    args = parse_args(argv)
+    args = parse_args(sys.argv)
 
     files = glob.glob(args.crs_rules[0])
 
@@ -456,4 +456,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.argv[0] = re.sub(r"(-script\.pyw|\.exe)?$", "", sys.argv[0])
+    sys.exit(main())

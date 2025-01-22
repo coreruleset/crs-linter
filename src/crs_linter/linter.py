@@ -111,10 +111,11 @@ class Check(object):
 
     def is_error(self):
         """ Returns True if any error is found """
-        return len(self.caseerror) > 0 or len(self.orderacts) > 0 or len(self.auditlogparts) > 0 or len(
-            self.undef_txvars) > 0 or len(self.pltags) > 0 or len(self.plscores) > 0 or len(self.dupes) > 0 or len(
-            self.ids) > 0 or len(self.newtags) > 0 or len(self.ignorecase) > 0 or len(self.nocrstags) > 0 or len(
-            self.noveract) > 0 or len(self.nocaptact) > 0
+        error_vars = [self.caseerror, self.orderacts, self.auditlogparts, 
+            self.undef_txvars, self.pltags, self.plscores, self.dupes, 
+            self.ids, self.newtags, self.ignorecase, self.nocrstags, 
+            self.noveract, self.nocaptact]
+        return any([len(var) > 0 for var in error_vars])
 
     def store_error(self, msg):
         # store the error msg in the list
