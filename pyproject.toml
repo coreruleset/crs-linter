@@ -36,7 +36,8 @@ crs-linter = 'crs_linter.cli:main'
 
 [dependency-groups]
 dev = [
-  "pytest >=8.1.1,<9"
+  "pytest >=8.1.1,<9",
+  "pytest-mock>=3.14.0",
 ]
 
 [tool.semantic_release]
