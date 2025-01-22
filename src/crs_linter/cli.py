@@ -159,7 +159,7 @@ def check_indentation(filename, content):
     try:
         with open(filename, 'r') as fp:
             from_lines = fp.readlines()
-            if f.startswith("crs-setup.conf.example"):
+            if filename.startswith("crs-setup.conf.example"):
                 from_lines = remove_comments("".join(from_lines)).split("\n")
                 from_lines = [l + "\n" for l in from_lines]
     except:
@@ -259,7 +259,7 @@ def parse_args(argv):
 
 def main():
     retval = 0
-    args = parse_args(sys.argv)
+    args = parse_args(sys.argv[1:])
 
     files = glob.glob(args.crs_rules[0])
 
