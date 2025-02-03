@@ -392,7 +392,7 @@ class Check(object):
                                     'ruleid': ruleid,
                                     'line': a['lineno'],
                                     'endLine': a['lineno'],
-                                    'message': "TX variable '%s' not set / later set (rvar) in rule %d" % (v, ruleid)
+                                    'message': f"TX variable '{v}' not set / later set (rvar) in rule {ruleid}"
                                 })
                             else:
                                 self.globtxvars[v]['used'] = True
