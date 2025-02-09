@@ -13,6 +13,7 @@ from semver import Version
 from crs_linter.linter import Check
 from crs_linter.logger import Logger
 
+
 def remove_comments(data):
     """
     In some special cases, remove the comments from the beginning of the lines.
@@ -53,7 +54,9 @@ def remove_comments(data):
     """
     _data = []  # new structure by lines
     lines = data.split("\n")
-    marks = re.compile("^#(| *)(SecRule|SecAction)", re.I)  # regex what catches the rules
+    marks = re.compile(
+        "^#(| *)(SecRule|SecAction)", re.I
+    )  # regex what catches the rules
     state = 0  # hold the state of the parser
     for l in lines:
         # if the line starts with #SecRule, #SecAction, # SecRule, # SecAction, set the marker
@@ -117,7 +120,7 @@ def get_crs_version(directory, version=None):
         crs_version = version.strip()
     # if no "OWASP_CRS/"prefix, prepend it
     if not crs_version.startswith("OWASP_CRS/"):
-        crs_version = "OWASP_CRS/"+ crs_version
+        crs_version = "OWASP_CRS/" + crs_version
 
     return crs_version
 
@@ -127,13 +130,13 @@ def check_indentation(filename, content):
 
     ### make a diff to check the indentations
     try:
-        with open(filename, 'r') as fp:
+        with open(filename, "r") as fp:
             from_lines = fp.readlines()
             if filename.startswith("crs-setup.conf.example"):
                 from_lines = remove_comments("".join(from_lines)).split("\n")
-                from_lines = [l + "\n"for l in from_lines]
+                from_lines = [l + "\n" for l in from_lines]
     except:
-        logger.error(" Can't open file for indent check: %s"% (f))
+        logger.error(" Can't open file for indent check: %s" % (f))
         error = True
 
     # virtual output
@@ -144,7 +147,7 @@ def check_indentation(filename, content):
         if l == "\n":
             output.append("\n")
         else:
-            output += [l + "\n"for l in l.split("\n")]
+            output += [l + "\n" for l in l.split("\n")]
 
     if len(from_lines) < len(output):
         from_lines.append("\n")
@@ -164,12 +167,12 @@ def check_indentation(filename, content):
         if r:
             line1, line2 = [int(i) for i in r.groups()]
             e = {
-                'indent': 2,
-                'file': filename,
-                'title': "Indentation error",
-                'line': line1,
-                'endLine': line1 + line2,
-                'message': "an indentation error has found"
+                "indent": 2,
+                "file": filename,
+                "title": "Indentation error",
+                "line": line1,
+                "endLine": line1 + line2,
+                "message": "an indentation error has found",
             }
             errmsgf(e)
         logger.error(d.strip("\n"))
@@ -186,7 +189,7 @@ def read_files(filenames):
 
     for f in filenames:
         try:
-            with open(f, 'r') as file:
+            with open(f, "r") as file:
                 data = file.read()
                 # modify the content of the file, if it is the "crs-setup.conf.example"
                 if f.startswith("crs-setup.conf.example"):
@@ -204,11 +207,17 @@ def read_files(filenames):
             parsed[f] = mparser.configlines
         except Exception as e:
             err = e.args[1]
-            if err['cause'] == "lexer":
+            if err["cause"] == "lexer":
                 cause = "Lexer"
             else:
                 cause = "Parser"
-            logger.error(f"Can't parse config file: {f}", title=f"{cause} error", file=f, line=err['line'], end_line=err['line'])
+            logger.error(
+                f"Can't parse config file: {f}",
+                title=f"{cause} error",
+                file=f,
+                line=err["line"],
+                end_line=err["line"],
+            )
             retval = 1
             continue
 
@@ -216,18 +225,52 @@ def read_files(filenames):
 
 
 def parse_args(argv):
-    parser = argparse.ArgumentParser(prog="crs-linter", description="CRS Rules Check tool")
-    parser.add_argument("-o", "--output", dest="output", default="native",
-                        help="Output format", choices=["native", "github"], required=False)
-    parser.add_argument("-d", "--directory", dest="directory", default=pathlib.Path("."), type=pathlib.Path,
-                        help='Directory path to CRS git repository', required=True)
-    parser.add_argument("--debug", dest="debug", help="Show debug information.", action='store_true')
-    parser.add_argument("-r", "--rules", type=str, dest="crs_rules",
-                        help='CRS rules file to check. Can be used multiple times.', action='append', required=True)
-    parser.add_argument("-t", "--tags-list", dest="tagslist", help="Path to file with permitted tags", required=True)
-    parser.add_argument("-v", "--version", dest="version", help="Version string", required=False)
+    parser = argparse.ArgumentParser(
+        prog="crs-linter", description="CRS Rules Check tool"
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        default="native",
+        help="Output format",
+        choices=["native", "github"],
+        required=False,
+    )
+    parser.add_argument(
+        "-d",
+        "--directory",
+        dest="directory",
+        default=pathlib.Path("."),
+        type=pathlib.Path,
+        help="Directory path to CRS git repository",
+        required=True,
+    )
+    parser.add_argument(
+        "--debug", dest="debug", help="Show debug information.", action="store_true"
+    )
+    parser.add_argument(
+        "-r",
+        "--rules",
+        type=str,
+        dest="crs_rules",
+        help="CRS rules file to check. Can be used multiple times.",
+        action="append",
+        required=True,
+    )
+    parser.add_argument(
+        "-t",
+        "--tags-list",
+        dest="tagslist",
+        help="Path to file with permitted tags",
+        required=True,
+    )
+    parser.add_argument(
+        "-v", "--version", dest="version", help="Version string", required=False
+    )
 
     return parser.parse_args(argv)
+
 
 def main():
     global logger
@@ -258,7 +301,13 @@ def main():
         else:
             logger.error("Ignore case check found error(s)")
             for a in c.caseerror:
-                logger.error(a['message'], title="Case check", file=f, line=a['line'], end_line=a['endLine'])
+                logger.error(
+                    a["message"],
+                    title="Case check",
+                    file=f,
+                    line=a["line"],
+                    end_line=a["endLine"],
+                )
 
         ### check action's order
         c.check_action_order()
@@ -266,7 +315,11 @@ def main():
             logger.debug("Action order check ok.")
         else:
             for a in c.orderacts:
-                logger.error("Action order check found error(s)", file=f, title='Action order check')
+                logger.error(
+                    "Action order check found error(s)",
+                    file=f,
+                    title="Action order check",
+                )
 
         error = check_indentation(f, parsed[f])
         if error:
@@ -279,7 +332,11 @@ def main():
         else:
             logger.error()
             for a in c.auditlogparts:
-                logger.error("Found 'ctl:auditLogParts' action", file=f, title="'ctl:auditLogParts' isn't allowed in CRS")
+                logger.error(
+                    "Found 'ctl:auditLogParts' action",
+                    file=f,
+                    title="'ctl:auditLogParts' isn't allowed in CRS",
+                )
 
         ### collect TX variables
         #   this method collects the TX variables, which set via a
@@ -300,13 +357,21 @@ def main():
             logger.debug("Paranoia-level tags are correct.")
         else:
             for a in c.pltags:
-                logger.error("Found incorrect paranoia-level/N tag(s)", file=f, title="wrong or missing paranoia-level/N tag")
+                logger.error(
+                    "Found incorrect paranoia-level/N tag(s)",
+                    file=f,
+                    title="wrong or missing paranoia-level/N tag",
+                )
 
         if len(c.plscores) == 0:
             logger.debug("PL anomaly_scores are correct.")
         else:
             for a in c.plscores:
-                logger.error("Found incorrect (inbound|outbout)_anomaly_score value(s)", file=f, title="wrong (inbound|outbout)_anomaly_score variable or value")
+                logger.error(
+                    "Found incorrect (inbound|outbout)_anomaly_score value(s)",
+                    file=f,
+                    title="wrong (inbound|outbout)_anomaly_score variable or value",
+                )
 
         ### check existence of used TX variables
         c.check_tx_variable()
@@ -314,41 +379,65 @@ def main():
             logger.debug("All TX variables are set.")
         else:
             for a in c.undef_txvars:
-                logger.error(a['message'], file=f, title="unset TX variable", line=a['line'], end_line=a['endLine'])
+                logger.error(
+                    a["message"],
+                    file=f,
+                    title="unset TX variable",
+                    line=a["line"],
+                    end_line=a["endLine"],
+                )
 
         ### check new unlisted tags
         c.check_tags(tags)
         if len(c.newtags) == 0:
             logger.debug("No new tags added.")
         else:
-            logger.error("There are one or more new tag(s).", file=f, title="new unlisted tag")
+            logger.error(
+                "There are one or more new tag(s).", file=f, title="new unlisted tag"
+            )
 
         ### check for t:lowercase in combination with (?i) in regex
         c.check_lowercase_ignorecase()
         if len(c.ignorecase) == 0:
             logger.debug("No t:lowercase and (?i) flag used.")
         else:
-            logger.error("There are one or more combinations of t:lowercase and (?i) flag", file=f, title="t:lowercase and (?i)")
+            logger.error(
+                "There are one or more combinations of t:lowercase and (?i) flag",
+                file=f,
+                title="t:lowercase and (?i)",
+            )
 
         ### check for tag:'OWASP_CRS'
         c.check_crs_tag()
         if len(c.nocrstags) == 0:
             logger.debug("No rule without OWASP_CRS tag.")
         else:
-            logger.error("There are one or more rules without OWASP_CRS tag", file=f, title="tag:OWASP_CRS is missing")
+            logger.error(
+                "There are one or more rules without OWASP_CRS tag",
+                file=f,
+                title="tag:OWASP_CRS is missing",
+            )
 
         ### check for ver action
         c.check_ver_action(crs_version)
         if len(c.noveract) == 0:
             logger.debug("No rule without correct ver action.")
         else:
-            logger.error("There are one or more rules without ver action.", file=f, title="ver is missing / incorrect")
+            logger.error(
+                "There are one or more rules without ver action.",
+                file=f,
+                title="ver is missing / incorrect",
+            )
 
         c.check_capture_action()
         if len(c.nocaptact) == 0:
             logger.debug("No rule uses TX.N without capture action.")
         else:
-            logger.error("There are one or more rules using TX.N without capture action.", file=f, title="capture is missing")
+            logger.error(
+                "There are one or more rules using TX.N without capture action.",
+                file=f,
+                title="capture is missing",
+            )
 
         # set it once if there is an error
         if c.is_error():
@@ -360,11 +449,16 @@ def main():
     logger.debug("Cumulated report about unused TX variables")
     has_unused = False
     for tk in txvars:
-        if txvars[tk]['used'] == False:
+        if txvars[tk]["used"] == False:
             if has_unused == False:
                 logger.debug("Unused TX variable(s):")
             a = txvars[tk]
-            logger.error(f"unused variable: {tk}", title="unused TX variable", line=a['line'], end_line=a['endLine'])
+            logger.error(
+                f"unused variable: {tk}",
+                title="unused TX variable",
+                line=a["line"],
+                end_line=a["endLine"],
+            )
             has_unused = True
 
     if not has_unused:

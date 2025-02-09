@@ -18,7 +18,7 @@ def test_check_ignore_proper_case():
 
 
 def test_check_ignore_case_fail_invalid_action_case():
-    """ Two actions are in the wrong case. """
+    """Two actions are in the wrong case."""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,LOG,NoLOg,status:403"'
     p = parse_config(t)
     c = Check(p)
@@ -28,7 +28,7 @@ def test_check_ignore_case_fail_invalid_action_case():
 
 
 def test_check_action_order():
-    """ Test that the actions are in the correct order. """
+    """Test that the actions are in the correct order."""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,nolog"'
     p = parse_config(t)
     c = Check(p)
@@ -38,7 +38,7 @@ def test_check_action_order():
 
 
 def test_check_action_fail_wrong_order():
-    """ Test if the action is in the wrong order. status should go before log """
+    """Test if the action is in the wrong order. status should go before log"""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Check(p)
@@ -48,7 +48,7 @@ def test_check_action_fail_wrong_order():
 
 
 def test_check_ctl_auditctl_log_parts():
-    """ Test that there is no ctl:auditLogParts action in any rules"""
+    """Test that there is no ctl:auditLogParts action in any rules"""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Check(p)
@@ -67,7 +67,7 @@ def test_check_wrong_ctl_audit_log_parts():
 
 
 def test_check_tx_variable():
-    """ Test that variables are defined in the transaction """
+    """Test that variables are defined in the transaction"""
     t = """SecRule &TX:blocking_paranoia_level "@eq 0" \
     "id:901120,\
     phase:1,\
@@ -197,7 +197,7 @@ def test_check_tags():
         """
     p = parse_config(t)
     c = Check(p)
-    c.check_tags(['PIZZA', 'OWASP_CRS'])
+    c.check_tags(["PIZZA", "OWASP_CRS"])
 
     assert len(c.newtags) == 0
 
@@ -214,7 +214,7 @@ def test_check_tags_fail():
         """
     p = parse_config(t)
     c = Check(p)
-    c.check_tags(['OWASP_CRS', 'PIZZA'])
+    c.check_tags(["OWASP_CRS", "PIZZA"])
 
     assert len(c.newtags) == 1
 

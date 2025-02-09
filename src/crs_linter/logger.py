@@ -16,7 +16,6 @@ class Logger:
         else:
             self.logger = gha_utils
 
-
     def start_group(self, *args, **kwargs):
         if self.output == "github":
             self.logger.start_group(*args, **kwargs)
@@ -49,4 +48,3 @@ class Logger:
     def info(self, *args, **kwargs):
         if self.output == "native":
             self.logger.info(*args, **kwargs)
-
