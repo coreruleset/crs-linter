@@ -218,7 +218,6 @@ def read_files(filenames):
                 line=err["line"],
                 end_line=err["line"],
             )
-            retval = 1
             continue
 
     return parsed
@@ -441,6 +440,7 @@ def main():
 
         # set it once if there is an error
         if c.is_error():
+            logger.debug(f"Error(s) found in {f}.")
             retval = 1
 
         logger.end_group()
@@ -464,6 +464,7 @@ def main():
     if not has_unused:
         logger.debug("No unused TX variable")
 
+    logger.debug(f"retval: {retval}")
     return retval
 
 
