@@ -17,7 +17,7 @@ def remove_comments(data):
     """
     In some special cases, remove the comments from the beginning of the lines.
 
-    A special case starts when the line has a "SecRule" or "SecAction" token at
+    A special case starts when the line has a "SecRule"or "SecAction"token at
     the beginning and ends when the line - with or without a comment - is empty.
 
     Eg.:
@@ -77,7 +77,7 @@ def remove_comments(data):
 def generate_version_string(directory):
     """
     generate version string from git tag
-    program calls "git describe --tags" and converts it to version
+    program calls "git describe --tags"and converts it to version
     eg:
       v4.5.0-6-g872a90ab -> "4.6.0-dev"
       v4.5.0-0-abcd01234 -> "4.5.0"
@@ -115,9 +115,9 @@ def get_crs_version(directory, version=None):
         crs_version = generate_version_string(directory)
     else:
         crs_version = version.strip()
-    # if no "OWASP_CRS/" prefix, prepend it
+    # if no "OWASP_CRS/"prefix, prepend it
     if not crs_version.startswith("OWASP_CRS/"):
-        crs_version = "OWASP_CRS/" + crs_version
+        crs_version = "OWASP_CRS/"+ crs_version
 
     return crs_version
 
@@ -131,9 +131,9 @@ def check_indentation(filename, content):
             from_lines = fp.readlines()
             if filename.startswith("crs-setup.conf.example"):
                 from_lines = remove_comments("".join(from_lines)).split("\n")
-                from_lines = [l + "\n" for l in from_lines]
+                from_lines = [l + "\n"for l in from_lines]
     except:
-        logger.error("  Can't open file for indent check: %s" % (f))
+        logger.error(" Can't open file for indent check: %s"% (f))
         error = True
 
     # virtual output
@@ -144,7 +144,7 @@ def check_indentation(filename, content):
         if l == "\n":
             output.append("\n")
         else:
-            output += [l + "\n" for l in l.split("\n")]
+            output += [l + "\n"for l in l.split("\n")]
 
     if len(from_lines) < len(output):
         from_lines.append("\n")
@@ -153,9 +153,9 @@ def check_indentation(filename, content):
 
     diff = difflib.unified_diff(from_lines, output)
     if from_lines == output:
-        logger.debug(" Indentation check ok.")
+        logger.debug("Indentation check ok.")
     else:
-        logger.error(" Indentation check found error(s)")
+        logger.error("Indentation check found error(s)")
         error = True
 
     for d in diff:
@@ -181,6 +181,9 @@ def read_files(filenames):
     global logger
 
     parsed = {}
+    # filenames must be in order to correctly detect unused variables
+    filenames = sorted(filenames)
+
     for f in filenames:
         try:
             with open(f, 'r') as file:
@@ -197,7 +200,7 @@ def read_files(filenames):
         try:
             mparser = msc_pyparser.MSCParser()
             mparser.parser.parse(data)
-            logger.debug("Parsing OK")
+            logger.debug(f"Config file: {f} - Parsing OK")
             parsed[f] = mparser.configlines
         except Exception as e:
             err = e.args[1]
@@ -205,7 +208,7 @@ def read_files(filenames):
                 cause = "Lexer"
             else:
                 cause = "Parser"
-            logger.error(f"Can't parse config file: {f}", title=f"{cause} error", file=f, line=err['line'], endLine=err['line'])
+            logger.error(f"Can't parse config file: {f}", title=f"{cause} error", file=f, line=err['line'], end_line=err['line'])
             retval = 1
             continue
 
@@ -244,17 +247,18 @@ def main():
 
     logger.info("Checking parsed rules...")
     for f in parsed.keys():
+        logger.start_group(f)
         logger.debug(f)
         c = Check(parsed[f], f, txvars)
 
         ### check case usings
         c.check_ignore_case()
         if len(c.caseerror) == 0:
-            logger.info("Ignore case check ok.")
+            logger.debug("Ignore case check ok.")
         else:
             logger.error("Ignore case check found error(s)")
             for a in c.caseerror:
-                logger.error(file=f, title="Case check")
+                logger.error(a['message'], title="Case check", file=f, line=a['line'], end_line=a['endLine'])
 
         ### check action's order
         c.check_action_order()
@@ -271,7 +275,7 @@ def main():
         ### check `ctl:auditLogParts=+E` right place in chained rules
         c.check_ctl_audit_log()
         if len(c.auditlogparts) == 0:
-            logger.debug(" no 'ctl:auditLogParts' action found.")
+            logger.debug("no 'ctl:auditLogParts' action found.")
         else:
             logger.error()
             for a in c.auditlogparts:
@@ -302,7 +306,7 @@ def main():
             logger.debug("PL anomaly_scores are correct.")
         else:
             for a in c.plscores:
-                logger.error(" Found incorrect (inbound|outbout)_anomaly_score value(s)", file=f, title="wrong (inbound|outbout)_anomaly_score variable or value")
+                logger.error("Found incorrect (inbound|outbout)_anomaly_score value(s)", file=f, title="wrong (inbound|outbout)_anomaly_score variable or value")
 
         ### check existence of used TX variables
         c.check_tx_variable()
@@ -350,6 +354,7 @@ def main():
         if c.is_error():
             retval = 1
 
+        logger.end_group()
     logger.debug("End of checking parsed rules")
 
     logger.debug("Cumulated report about unused TX variables")
@@ -359,7 +364,7 @@ def main():
             if has_unused == False:
                 logger.debug("Unused TX variable(s):")
             a = txvars[tk]
-            logger.error(f"unused variable: {tk}", title="unused TX variable")
+            logger.error(f"unused variable: {tk}", title="unused TX variable", line=a['line'], end_line=a['endLine'])
             has_unused = True
 
     if not has_unused:

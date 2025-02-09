@@ -16,6 +16,15 @@ class Logger:
         else:
             self.logger = gha_utils
 
+
+    def start_group(self, *args, **kwargs):
+        if self.output == "github":
+            self.logger.start_group(*args, **kwargs)
+
+    def end_group(self):
+        if self.output == "github":
+            self.logger.end_group()
+
     def debug(self, *args, **kwargs):
         if self.debugging:
             if self.output == "native":
