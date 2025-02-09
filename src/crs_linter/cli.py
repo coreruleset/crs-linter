@@ -18,7 +18,7 @@ def remove_comments(data):
     """
     In some special cases, remove the comments from the beginning of the lines.
 
-    A special case starts when the line has a "SecRule"or "SecAction"token at
+    A special case starts when the line has a "SecRule" or "SecAction" token at
     the beginning and ends when the line - with or without a comment - is empty.
 
     Eg.:
@@ -54,9 +54,8 @@ def remove_comments(data):
     """
     _data = []  # new structure by lines
     lines = data.split("\n")
-    marks = re.compile(
-        "^#(| *)(SecRule|SecAction)", re.I
-    )  # regex what catches the rules
+    # regex for matching rules
+    marks = re.compile("^#(| *)(SecRule|SecAction)", re.I)
     state = 0  # hold the state of the parser
     for l in lines:
         # if the line starts with #SecRule, #SecAction, # SecRule, # SecAction, set the marker
@@ -80,7 +79,7 @@ def remove_comments(data):
 def generate_version_string(directory):
     """
     generate version string from git tag
-    program calls "git describe --tags"and converts it to version
+    program calls "git describe --tags" and converts it to version
     eg:
       v4.5.0-6-g872a90ab -> "4.6.0-dev"
       v4.5.0-0-abcd01234 -> "4.5.0"
@@ -103,7 +102,7 @@ def get_tags_from_file(filename):
         with open(filename, "r") as fp:
             tags = [l.strip() for l in fp.readlines()]
             # remove empty items, if any
-            tags = list(filter(lambda x: len(x) > 0, tags))
+            tags = [l for l in tags if len(l) > 0]
     except:
         logger.error(f"Can't open tags list: {filename}")
         sys.exit(1)
@@ -136,7 +135,7 @@ def check_indentation(filename, content):
                 from_lines = remove_comments("".join(from_lines)).split("\n")
                 from_lines = [l + "\n" for l in from_lines]
     except:
-        logger.error(" Can't open file for indent check: %s" % (f))
+        logger.error(f"Can't open file for indentation check: {filename}")
         error = True
 
     # virtual output
@@ -144,10 +143,7 @@ def check_indentation(filename, content):
     writer.generate()
     output = []
     for l in writer.output:
-        if l == "\n":
-            output.append("\n")
-        else:
-            output += [l + "\n" for l in l.split("\n")]
+        output += [l + "\n" for l in l.split("\n") if l != "\n" else l]
 
     if len(from_lines) < len(output):
         from_lines.append("\n")
@@ -185,7 +181,7 @@ def read_files(filenames):
 
     parsed = {}
     # filenames must be in order to correctly detect unused variables
-    filenames = sorted(filenames)
+   list(filenames).sort()
 
     for f in filenames:
         try:
@@ -346,7 +342,7 @@ def main():
         ### check duplicate ID's
         #   c.dupes filled during the tx variable collected
         if len(c.dupes) == 0:
-            logger.debug("No duplicate id's")
+            logger.debug("No duplicate IDs")
         else:
             logger.error("Found duplicated id('s)", file=f, title="'id' is duplicated")
 
@@ -423,7 +419,7 @@ def main():
             logger.debug("No rule without correct ver action.")
         else:
             logger.error(
-                "There are one or more rules without ver action.",
+                "There are one or more rules with incorrect ver action.",
                 file=f,
                 title="ver is missing / incorrect",
             )
