@@ -156,8 +156,7 @@ class Check(object):
                 else:
                     self.chained = False
 
-                while aidx < len(d["actions"]):
-                    a = d["actions"][aidx]  # 'a' is the action from the list
+                for action in d["actions"]:
 
                     self.curr_lineno = a["lineno"]
                     if a["act_name"] == "id":
@@ -185,11 +184,11 @@ class Check(object):
                             self.ctls[self.ctlsl.index(a["act_arg"].lower())]
                             != a["act_arg"]
                         ):
-                            self.store_error("Ctl case mismatch: %s" % a["act_arg"])
+                            self.store_error(f"Ctl case mismatch: {a["act_arg"]}")
                     if a["act_name"] == "t":
                         # check the transform is valid
                         if a["act_arg"].lower() not in self.transformsl:
-                            self.store_error("Invalid transform: %s" % a["act_arg"])
+                            self.store_error(f"Invalid transform: a["act_arg"]")
                         # check the transform case sensitive format
                         if (
                             self.transforms[
@@ -198,7 +197,7 @@ class Check(object):
                             != a["act_arg"]
                         ):
                             self.store_error(
-                                "Transform case mismatch : %s" % a["act_arg"]
+                                f"Transform case mismatch : a["act_arg"]"
                             )
                     aidx += 1
             if "operator" in d and d["operator"] != "":
@@ -207,10 +206,10 @@ class Check(object):
                 op = d["operator"].replace("!", "").replace("@", "")
                 # check the operator is valid
                 if op.lower() not in self.operatorsl:
-                    self.store_error("Invalid operator: %s" % d["operator"])
+                    self.store_error(f"Invalid operator: d["operator"]")
                 # check the operator case sensitive format
                 if self.operators[self.operatorsl.index(op.lower())] != op:
-                    self.store_error("Operator case mismatch: %s" % d["operator"])
+                    self.store_error(f"Operator case mismatch: d["operator"]")
             else:
                 if d["type"].lower() == "secrule":
                     self.curr_lineno = d["lineno"]
@@ -218,7 +217,7 @@ class Check(object):
             if self.current_ruleid > 0:
                 for e in self.caseerror:
                     e["ruleid"] = self.current_ruleid
-                    e["message"] += " (rule: %d)" % (self.current_ruleid)
+                    e["message"] += f" (rule: {self.current_ruleid)"
 
     def check_action_order(self):
         for d in self.data:
@@ -230,9 +229,7 @@ class Check(object):
                 else:
                     self.chained = False
 
-                while aidx < len(d["actions"]):
-                    # read the action into 'a'
-                    a = d["actions"][aidx]
+                for index, action in enumerate(d["actions"]):
 
                     # get the 'id' of rule
                     self.curr_lineno = a["lineno"]
@@ -248,7 +245,7 @@ class Check(object):
                     try:
                         act_idx = self.ordered_actions.index(a["act_name"].lower())
                     except ValueError:
-                        print("ERROR: '%s' not in actions list!" % (a["act_name"]))
+                        print(f"ERROR: '{a["act_name"]}' not in actions list!")
                         sys.exit(-1)
 
                     # if the index of current action is @ge than the previous
@@ -270,13 +267,11 @@ class Check(object):
                                         prevact,
                                         pidx,
                                         a["act_name"],
-                                        aidx,
+                                        index,
                                     ),
                                 }
                             )
                     prevact = a["act_name"].lower()
-                    pidx = aidx
-                    aidx += 1
                 for a in self.orderacts:
                     if a["ruleid"] == 0:
                         a["ruleid"] = self.current_ruleid
@@ -285,12 +280,10 @@ class Check(object):
     def check_ctl_audit_log(self):
         """check there is no ctl:auditLogParts action in any rules"""
         for d in self.data:
-            if "actions" in d:
-                aidx = 0  # stores the index of current action
+            if "actions" not in d:
+                return
 
-                while aidx < len(d["actions"]):
-                    # read the action into 'a'
-                    a = d["actions"][aidx]
+                for action in d["actions"]:
 
                     # get the 'id' of rule
                     self.curr_lineno = a["lineno"]
@@ -311,7 +304,6 @@ class Check(object):
                             }
                         )
 
-                    aidx += 1
 
     def collect_tx_variable(self):
         """collect TX variables in rules
@@ -325,7 +317,6 @@ class Check(object):
         chained = False
         for d in self.data:
             if "actions" in d:
-                aidx = 0  # stores the index of current action
                 if chained == False:
                     ruleid = 0  # ruleid
                     phase = (
@@ -333,9 +324,7 @@ class Check(object):
                     )
                 else:
                     chained = False
-                while aidx < len(d["actions"]):
-                    # read the action into 'a'
-                    a = d["actions"][aidx]
+                for action in d["actions"]:
                     if a["act_name"] == "id":
                         ruleid = int(a["act_arg"])
                         if ruleid in self.ids:
@@ -381,7 +370,6 @@ class Check(object):
                                     "line": a["lineno"],
                                     "endLine": a["lineno"],
                                 }
-                    aidx += 1
 
     def check_tx_variable(self):
         """this function checks if a used TX variable has set
@@ -393,27 +381,22 @@ class Check(object):
 
         this function collects the variables if it is used but not set previously
         """
-        check_exists = (
-            None  # set if rule checks the existence of varm eg `&TX:foo "@eq 1"`
-        )
+        # set if rule checks the existence of var, e.g., `&TX:foo "@eq 1"`
+        check_exists = None
         has_disruptive = False  # set if rule contains disruptive action
         chained = False
         for d in self.data:
             if d["type"].lower() in ["secrule", "secaction"]:
-                aidx = 0  # stores the index of current action
                 if chained == False:
-                    phase = (
-                        2  # works only in Apache, libmodsecurity uses default phase 1
-                    )
+                    # works only in Apache, libmodsecurity uses default phase 1
+                    phase = 2
                     ruleid = 0
                 else:
                     chained = False
 
                 # iterate over actions and collect these values:
                 # ruleid, phase, chained, rule has or not any disruptive action
-                while aidx < len(d["actions"]):
-                    # read the action into 'a'
-                    a = d["actions"][aidx]
+                for action in d["actions"]:
                     if a["act_name"] == "id":
                         ruleid = int(a["act_arg"])
                     if a["act_name"] == "phase":
@@ -618,9 +601,7 @@ class Check(object):
             if "actions" in d:
                 aidx = 0  # stores the index of current action
                 chained = False
-                while aidx < len(d["actions"]):
-                    # read the action into 'a'
-                    a = d["actions"][aidx]
+                for action in d["actions"]:
                     if a["act_name"] == "id":
                         ruleid = int(a["act_arg"])
                     if a["act_name"] == "severity":
@@ -637,9 +618,8 @@ class Check(object):
                             txv = a["act_arg"][3:].split("=")
                             txv[0] = txv[0].lower()  # variable name
                             if len(txv) > 1:
-                                txv[1] = (
-                                    txv[1].lower().strip(r"+\{\}")
-                                )  # variable value
+                                # variable value
+                                txv[1] = txv[1].lower().strip(r"+\{\}")
                             else:
                                 txv.append(a["act_arg_val"].strip(r"+\{\}"))
                             _txvars[txv[0]] = txv[1]
@@ -648,7 +628,6 @@ class Check(object):
                         has_nolog = True
                     if a["act_name"] == "chain":
                         chained = True
-                    aidx += 1
 
                 has_pl_tag = False
                 for a in tags:
@@ -661,8 +640,7 @@ class Check(object):
                                     "ruleid": ruleid,
                                     "line": a["lineno"],
                                     "endLine": a["lineno"],
-                                    "message": "tag '%s' with 'nolog' action, rule id: %d"
-                                    % (a["act_arg"], ruleid),
+                                    "message": f"tag '{a["act_arg"]}' with 'nolog' action, rule id: {ruleid}",
                                 }
                             )
                         elif pltag != curr_pl and curr_pl > 0:
@@ -671,8 +649,7 @@ class Check(object):
                                     "ruleid": ruleid,
                                     "line": a["lineno"],
                                     "endLine": a["lineno"],
-                                    "message": "tag '%s' on PL %d, rule id: %d"
-                                    % (a["act_arg"], curr_pl, ruleid),
+                                    "message": f"tag '{a["act_arg"]}' on PL {curr_pl}, rule id: {ruleid}",
                                 }
                             )
 
@@ -682,8 +659,7 @@ class Check(object):
                             "ruleid": ruleid,
                             "line": a["lineno"],
                             "endLine": a["lineno"],
-                            "message": "rule does not have `paranoia-level/%d` action, rule id: %d"
-                            % (curr_pl, ruleid),
+                            "message": f"rule does not have `paranoia-level/{curr_pl}` action, rule id: {ruleid}",
                         }
                     )
 
@@ -692,9 +668,8 @@ class Check(object):
                         "%{tx.[a-z]+_anomaly_score}", _txvars[t], re.I
                     )
                     val = re.sub(r"[+%{}]", "", _txvars[t]).lower()
-                    scorepl = re.search(
-                        r"anomaly_score_pl\d$", t
-                    )  # check if last char is a numeric, eg ...anomaly_score_pl1
+                    # check if last char is a numeric, eg ...anomaly_score_pl1
+                    scorepl = re.search(r"anomaly_score_pl\d$", t)
                     if scorepl:
                         if curr_pl > 0 and int(t[-1]) != curr_pl:
                             self.plscores.append(
@@ -702,8 +677,7 @@ class Check(object):
                                     "ruleid": ruleid,
                                     "line": _txvlines[t],
                                     "endLine": _txvlines[t],
-                                    "message": "variable %s on PL %d, rule id: %d"
-                                    % (t, curr_pl, ruleid),
+                                    "message": f"variable {t} on PL {curr_pl}, rule id: {ruleid}",
                                 }
                             )
                         if severity is None and subst_val:  # - do we need this?
@@ -712,8 +686,7 @@ class Check(object):
                                     "ruleid": ruleid,
                                     "line": _txvlines[t],
                                     "endLine": _txvlines[t],
-                                    "message": "missing severity action, rule id: %d"
-                                    % (ruleid),
+                                    "message": f"missing severity action, rule id: {ruleid}",
                                 }
                             )
                         else:
@@ -723,8 +696,7 @@ class Check(object):
                                         "ruleid": ruleid,
                                         "line": _txvlines[t],
                                         "endLine": _txvlines[t],
-                                        "message": "invalid value for anomaly_score_pl%d: %s with severity %s, rule id: %d"
-                                        % (int(t[-1]), val, severity, ruleid),
+                                        "message": f"invalid value for anomaly_score_pl{t[-1]}: {val} with severity {severity}, rule id: {ruleid}",
                                     }
                                 )
                         # variable was found so we need to mark it as used
@@ -766,8 +738,7 @@ class Check(object):
                                     "ruleid": ruleid,
                                     "line": a["lineno"],
                                     "endLine": a["lineno"],
-                                    "message": "rule uses unknown tag: '%s'; only tags registered in the util/APPROVED_TAGS file may be used; rule id: %d"
-                                    % (a["act_arg"], ruleid),
+                                    "message": f"rule uses unknown tag: '{a["act_arg"]}'; only tags registered in the util/APPROVED_TAGS file may be used; rule id: {ruleid}",
                                 }
                             )
                     aidx += 1
@@ -780,10 +751,7 @@ class Check(object):
                     regex = d["operator_argument"]
                     if regex.startswith("(?i)"):
                         if "actions" in d:
-                            aidx = 0  # stores the index of current action
-                            while aidx < len(d["actions"]):
-                                # read the action into 'a'
-                                a = d["actions"][aidx]
+                            for action in d["actions"]:
                                 if a["act_name"] == "id":
                                     ruleid = int(a["act_arg"])
                                 if a["act_name"] == "t":
@@ -794,11 +762,9 @@ class Check(object):
                                                 "ruleid": ruleid,
                                                 "line": a["lineno"],
                                                 "endLine": a["lineno"],
-                                                "message": "rule uses (?i) in combination with t:lowercase: '%s'; rule id: %d"
-                                                % (a["act_arg"], ruleid),
+                                                "message": f"rule uses (?i) in combination with t:lowercase: '{a["act_arg"]'; rule id: {ruleid}",
                                             }
                                         )
-                                aidx += 1
 
     def check_crs_tag(self):
         """
@@ -819,9 +785,7 @@ class Check(object):
                     chainlevel = 0
                 else:
                     chained = False
-                while aidx < len(d["actions"]):
-                    # read the action into 'a'
-                    a = d["actions"][aidx]
+                for action in d["actions"]:
                     if a["act_name"] == "id":
                         ruleid = int(a["act_arg"])
                     if a["act_name"] == "chain":
@@ -865,9 +829,7 @@ class Check(object):
                     chainlevel = 0
                 else:
                     chained = False
-                while aidx < len(d["actions"]):
-                    # read the action into 'a'
-                    a = d["actions"][aidx]
+                for action in d["actions"]:
                     if a["act_name"] == "id":
                         ruleid = int(a["act_arg"])
                     if a["act_name"] == "chain":
@@ -880,7 +842,6 @@ class Check(object):
                                 ver_is_ok = True
                             else:
                                 ruleversion = a["act_arg"]
-                    aidx += 1
                 if ruleid > 0 and chainlevel == 0:
                     if has_ver == False:
                         self.noveract.append(
@@ -921,9 +882,8 @@ class Check(object):
                     if v["variable"].lower() == "tx" and re_number.match(
                         v["variable_part"]
                     ):
-                        if (
-                            use_captured_var == False
-                        ):  # only the first occurrence required
+                        # only the first occurrence required
+                        if use_captured_var == False:
                             use_captured_var = True
                             captured_var_chain_level = chainlevel
                 if "actions" in d:
@@ -933,8 +893,7 @@ class Check(object):
                         chainlevel = 0
                     else:
                         chained = False
-                    while aidx < len(d["actions"]):
-                        # read the action into 'a'
+                    for action in d["actions"]:
                         a = d["actions"][aidx]
                         if a["act_name"] == "id":
                             ruleid = int(a["act_arg"])
@@ -944,7 +903,6 @@ class Check(object):
                         if a["act_name"] == "capture":
                             capture_level = chainlevel
                             has_capture = True
-                        aidx += 1
                     if ruleid > 0 and chained == False:  # end of chained rule
                         if use_captured_var == True:
                             # we allow if target with TX:N is in the first rule

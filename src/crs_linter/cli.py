@@ -344,7 +344,7 @@ def main():
         if len(c.dupes) == 0:
             logger.debug("No duplicate IDs")
         else:
-            logger.error("Found duplicated id('s)", file=f, title="'id' is duplicated")
+            logger.error("Found duplicated ID(s)", file=f, title="'id' is duplicated")
 
         ### check PL consistency
         c.check_pl_consistency()
