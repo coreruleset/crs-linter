@@ -108,7 +108,7 @@ class Check(object):
         self.pltags = []  # list of incosistent PL tags
         self.plscores = []  # list of incosistent PL scores
         self.dupes = []  # list of duplicated id's
-        self.ids = {}  # list of rule id's
+        self.ids = {}  # list of rule id's (this is not an error list, just the list of rule id's)
         self.newtags = []  # list of new, unlisted tags
         self.ignorecase = []  # list of combinations of t:lowercase and (?i)
         self.nocrstags = []  # list of rules without tag:OWASP_CRS
@@ -125,13 +125,13 @@ class Check(object):
             self.pltags,
             self.plscores,
             self.dupes,
-            self.ids,
             self.newtags,
             self.ignorecase,
             self.nocrstags,
             self.noveract,
             self.nocaptact,
         ]
+        print(f"Checking for errors: {error_vars}")
         return any([len(var) > 0 for var in error_vars])
 
     def store_error(self, msg):
