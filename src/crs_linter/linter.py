@@ -265,7 +265,7 @@ class Check(object):
                                     "message": "action '%s' at pos %d is wrong place against '%s' at pos %d"
                                     % (
                                         prevact,
-                                        pidx,
+                                        index - 1,
                                         a["act_name"],
                                         index,
                                     ),
