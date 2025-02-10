@@ -143,7 +143,7 @@ def check_indentation(filename, content):
     writer.generate()
     output = []
     for l in writer.output:
-        output += [l + "\n" for l in l.split("\n") if l != "\n" else l]
+        output += [l + "\n" for l in l.split("\n") if l != "\n"]
 
     if len(from_lines) < len(output):
         from_lines.append("\n")
@@ -181,7 +181,7 @@ def read_files(filenames):
 
     parsed = {}
     # filenames must be in order to correctly detect unused variables
-   list(filenames).sort()
+    filenames = sorted(filenames)
 
     for f in filenames:
         try:
@@ -291,11 +291,11 @@ def main():
 
         ### check case usings
         c.check_ignore_case()
-        if len(c.caseerror) == 0:
+        if len(c.error_case_mistmatch) == 0:
             logger.debug("Ignore case check ok.")
         else:
             logger.error("Ignore case check found error(s)")
-            for a in c.caseerror:
+            for a in c.error_case_mistmatch:
                 logger.error(
                     a["message"],
                     title="Case check",
@@ -306,10 +306,10 @@ def main():
 
         ### check action's order
         c.check_action_order()
-        if len(c.orderacts) == 0:
+        if len(c.error_action_order) == 0:
             logger.debug("Action order check ok.")
         else:
-            for a in c.orderacts:
+            for a in c.error_action_order:
                 logger.error(
                     "Action order check found error(s)",
                     file=f,
@@ -322,11 +322,11 @@ def main():
 
         ### check `ctl:auditLogParts=+E` right place in chained rules
         c.check_ctl_audit_log()
-        if len(c.auditlogparts) == 0:
+        if len(c.error_wrong_ctl_auditlogparts) == 0:
             logger.debug("no 'ctl:auditLogParts' action found.")
         else:
             logger.error()
-            for a in c.auditlogparts:
+            for a in c.error_wrong_ctl_auditlogparts:
                 logger.error(
                     "Found 'ctl:auditLogParts' action",
                     file=f,
@@ -340,28 +340,28 @@ def main():
         c.collect_tx_variable()
 
         ### check duplicate ID's
-        #   c.dupes filled during the tx variable collected
-        if len(c.dupes) == 0:
+        #   c.error_duplicated_id filled during the tx variable collected
+        if len(c.error_duplicated_id) == 0:
             logger.debug("No duplicate IDs")
         else:
             logger.error("Found duplicated ID(s)", file=f, title="'id' is duplicated")
 
         ### check PL consistency
         c.check_pl_consistency()
-        if len(c.pltags) == 0:
+        if len(c.error_inconsistent_pltags) == 0:
             logger.debug("Paranoia-level tags are correct.")
         else:
-            for a in c.pltags:
+            for a in c.error_inconsistent_pltags:
                 logger.error(
                     "Found incorrect paranoia-level/N tag(s)",
                     file=f,
                     title="wrong or missing paranoia-level/N tag",
                 )
 
-        if len(c.plscores) == 0:
+        if len(c.error_inconsistent_plscores) == 0:
             logger.debug("PL anomaly_scores are correct.")
         else:
-            for a in c.plscores:
+            for a in c.error_inconsistent_plscores:
                 logger.error(
                     "Found incorrect (inbound|outbout)_anomaly_score value(s)",
                     file=f,
@@ -370,10 +370,10 @@ def main():
 
         ### check existence of used TX variables
         c.check_tx_variable()
-        if len(c.undef_txvars) == 0:
+        if len(c.error_undefined_txvars) == 0:
             logger.debug("All TX variables are set.")
         else:
-            for a in c.undef_txvars:
+            for a in c.error_undefined_txvars:
                 logger.error(
                     a["message"],
                     file=f,
@@ -384,7 +384,7 @@ def main():
 
         ### check new unlisted tags
         c.check_tags(tags)
-        if len(c.newtags) == 0:
+        if len(c.error_new_unlisted_tags) == 0:
             logger.debug("No new tags added.")
         else:
             logger.error(
@@ -393,7 +393,7 @@ def main():
 
         ### check for t:lowercase in combination with (?i) in regex
         c.check_lowercase_ignorecase()
-        if len(c.ignorecase) == 0:
+        if len(c.error_combined_transformation_and_ignorecase) == 0:
             logger.debug("No t:lowercase and (?i) flag used.")
         else:
             logger.error(
@@ -404,7 +404,7 @@ def main():
 
         ### check for tag:'OWASP_CRS'
         c.check_crs_tag()
-        if len(c.nocrstags) == 0:
+        if len(c.error_no_crstag) == 0:
             logger.debug("No rule without OWASP_CRS tag.")
         else:
             logger.error(
@@ -415,7 +415,7 @@ def main():
 
         ### check for ver action
         c.check_ver_action(crs_version)
-        if len(c.noveract) == 0:
+        if len(c.error_no_ver_action_or_wrong_version) == 0:
             logger.debug("No rule without correct ver action.")
         else:
             logger.error(
@@ -425,7 +425,7 @@ def main():
             )
 
         c.check_capture_action()
-        if len(c.nocaptact) == 0:
+        if len(c.error_tx_N_without_capture_action) == 0:
             logger.debug("No rule uses TX.N without capture action.")
         else:
             logger.error(
