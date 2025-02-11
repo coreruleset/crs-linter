@@ -96,7 +96,7 @@ class Check():
         self.current_ruleid = 0  # holds the rule id
         self.curr_lineno = 0  # current line number
         self.chained = False  # holds the chained flag
-        self.re_tx_var = re.compile(r"%\{\}")
+        self.re_tx_var = re.compile(r"%\{}")
         self.filename = filename
         self.ids = {}  # list of rule id's and their location in files
 
@@ -157,7 +157,7 @@ class Check():
         for d in self.data:
             if "actions" in d:
                 aidx = 0  # index of action in list
-                if self.chained == False:
+                if not self.chained:
                     self.current_ruleid = 0
                 else:
                     self.chained = False
@@ -361,7 +361,7 @@ class Check():
                             if (
                                 txv[0] not in self.globtxvars
                                 or self.globtxvars[txv[0]]["phase"] > phase
-                            ) and not re.search(r"%\{[^%]+\}", txv[0]):
+                            ) and not re.search(r"%\{[^%]+}", txv[0]):
                                 self.globtxvars[txv[0]] = {
                                     "phase": phase,
                                     "used": False,
@@ -429,10 +429,10 @@ class Check():
                     #  act_atg_val <- 5
                     #
                     if "act_arg" in a and a["act_arg"] is not None:
-                        val_act = re.findall(r"%\{(tx.[^%]*)\}", a["act_arg"], re.I)
+                        val_act = re.findall(r"%\{(tx.[^%]*)}", a["act_arg"], re.I)
                     if "act_arg_val" in a and a["act_arg_val"] is not None:
                         val_act_arg = re.findall(
-                            r"%\{(tx.[^%]*)\}", a["act_arg_val"], re.I
+                            r"%\{(tx.[^%]*)}", a["act_arg_val"], re.I
                         )
                     for v in val_act + val_act_arg:
                         v = v.lower().replace("tx.", "")
@@ -618,9 +618,9 @@ class Check():
                             txv[0] = txv[0].lower()  # variable name
                             if len(txv) > 1:
                                 # variable value
-                                txv[1] = txv[1].lower().strip(r"+\{\}")
+                                txv[1] = txv[1].lower().strip(r"+\{}")
                             else:
-                                txv.append(a["act_arg_val"].strip(r"+\{\}"))
+                                txv.append(a["act_arg_val"].strip(r"+\{}"))
                             _txvars[txv[0]] = txv[1]
                             _txvlines[txv[0]] = a["lineno"]
                     if a["act_name"] == "nolog":
@@ -652,7 +652,7 @@ class Check():
                                 }
                             )
 
-                if has_pl_tag != True and has_nolog == False and curr_pl >= 1:
+                if not has_pl_tag and not has_nolog and curr_pl >= 1:
                     self.error_inconsistent_pltags.append(
                         {
                             "ruleid": ruleid,
@@ -664,9 +664,9 @@ class Check():
 
                 for t in _txvars:
                     subst_val = re.search(
-                        "%{tx.[a-z]+_anomaly_score}", _txvars[t], re.I
+                        "%\{tx.[a-z]+_anomaly_score}", _txvars[t], re.I
                     )
-                    val = re.sub(r"[+%{}]", "", _txvars[t]).lower()
+                    val = re.sub(r"[+%\{}]", "", _txvars[t]).lower()
                     # check if last char is a numeric, eg ...anomaly_score_pl1
                     scorepl = re.search(r"anomaly_score_pl\d$", t)
                     if scorepl:
@@ -718,7 +718,7 @@ class Check():
         for d in self.data:
             if "actions" in d:
                 aidx = 0  # stores the index of current action
-                if chained == False:
+                if not chained:
                     ruleid = 0
                 else:
                     chained = False
@@ -789,7 +789,7 @@ class Check():
                         if chainlevel == 0:
                             if a["act_arg"] == "OWASP_CRS":
                                 has_crs = True
-                if ruleid > 0 and has_crs == False:
+                if ruleid > 0 and not has_crs:
                     self.error_no_crstag.append(
                         {
                             "ruleid": ruleid,
@@ -805,7 +805,6 @@ class Check():
         """
         chained = False
         ruleid = 0
-        chainlevel = 0
         has_ver = False
         ver_is_ok = False
         crsversion = version
@@ -875,11 +874,11 @@ class Check():
                         v["variable_part"]
                     ):
                         # only the first occurrence required
-                        if use_captured_var == False:
+                        if not use_captured_var:
                             use_captured_var = True
                             captured_var_chain_level = chainlevel
                 if "actions" in d:
-                    if chained == False:
+                    if not chained:
                         ruleid = 0
                         chainlevel = 0
                     else:
@@ -893,13 +892,13 @@ class Check():
                         if a["act_name"] == "capture":
                             capture_level = chainlevel
                             has_capture = True
-                    if ruleid > 0 and chained == False:  # end of chained rule
+                    if ruleid > 0 and not chained:  # end of chained rule
                         if use_captured_var:
                             # we allow if target with TX:N is in the first rule
                             # of a chained rule without 'capture'
                             if captured_var_chain_level > 0:
                                 if (
-                                    has_capture == False
+                                    not has_capture
                                     or captured_var_chain_level < capture_level
                                 ):
                                     self.error_tx_N_without_capture_action.append(
