@@ -664,9 +664,9 @@ class Check():
 
                 for t in _txvars:
                     subst_val = re.search(
-                        "%\{tx.[a-z]+_anomaly_score}", _txvars[t], re.I
+                        r"%\{tx.[a-z]+_anomaly_score}", _txvars[t], re.I
                     )
-                    val = re.sub(r"[+%\{}]", "", _txvars[t]).lower()
+                    val = re.sub(r"[+%{}]", "", _txvars[t]).lower()
                     # check if last char is a numeric, eg ...anomaly_score_pl1
                     scorepl = re.search(r"anomaly_score_pl\d$", t)
                     if scorepl:

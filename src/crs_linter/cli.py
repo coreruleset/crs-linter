@@ -209,8 +209,14 @@ def read_files(filenames):
 
     return parsed
 
+def _version_in_argv(argv):
+    """" If version was passed as argument, make it not required """
+    if "-v" in argv or "--version" in argv:
+        return False
+    return True
 
 def parse_args(argv):
+    print(argv)
     parser = argparse.ArgumentParser(
         prog="crs-linter", description="CRS Rules Check tool"
     )
@@ -230,7 +236,7 @@ def parse_args(argv):
         default=pathlib.Path("."),
         type=pathlib.Path,
         help="Directory path to CRS git repository. This is required if you don't add the version.",
-        required='--version' or '-v' not in sys.argv, # this means it is required if you don't pass the version
+        required=_version_in_argv(argv), # this means it is required if you don't pass the version
     )
     parser.add_argument(
         "--debug", dest="debug", help="Show debug information.", action="store_true"
