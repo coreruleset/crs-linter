@@ -229,8 +229,8 @@ def parse_args(argv):
         dest="directory",
         default=pathlib.Path("."),
         type=pathlib.Path,
-        help="Directory path to CRS git repository",
-        required=True,
+        help="Directory path to CRS git repository. This is required if you don't add the version.",
+        required='--version' or '-v' not in sys.argv, # this means it is required if you don't pass the version
     )
     parser.add_argument(
         "--debug", dest="debug", help="Show debug information.", action="store_true"
@@ -252,7 +252,7 @@ def parse_args(argv):
         required=True,
     )
     parser.add_argument(
-        "-v", "--version", dest="version", help="Version string", required=False
+        "-v", "--version", dest="version", help="Check that the passed version string is used correctly.", required=False
     )
 
     return parser.parse_args(argv)
