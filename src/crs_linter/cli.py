@@ -154,7 +154,7 @@ def check_indentation(filename, content):
     if from_lines == output:
         logger.debug("Indentation check ok.")
     else:
-        logger.error("Indentation check found error(s)")
+        logger.debug("Indentation check found error(s)")
         error = True
 
     for d in diff:
@@ -162,16 +162,7 @@ def check_indentation(filename, content):
         r = re.match(r"^@@ -(\d+),(\d+) \+\d+,\d+ @@$", d)
         if r:
             line1, line2 = [int(i) for i in r.groups()]
-            e = {
-                "indent": 2,
-                "file": filename,
-                "title": "Indentation error",
-                "line": line1,
-                "endLine": line1 + line2,
-                "message": "an indentation error has found",
-            }
-            errmsgf(e)
-        logger.error(d.strip("\n"))
+            logger.error("an indentation error was found", file=filename, title="Indentation error", line=line1, end_line=line1 + line2)
 
     return error
 
