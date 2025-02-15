@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import glob
 import logging
 import pathlib
 import sys
@@ -6,43 +7,11 @@ import msc_pyparser
 import difflib
 import argparse
 import re
-from dulwich import porcelain
-from dulwich.repo import Repo
 from dulwich.contrib.release_robot import get_current_version, get_recent_tags
 from semver import Version
 
 from crs_linter.linter import Check
-
-oformat = "native"
-
-def errmsg(msg):
-    if oformat == "github":
-        print("::error::%s" % (msg))
-    else:
-        print(msg)
-
-
-def errmsgf(msg):
-    if oformat == "github":
-        if 'message' in msg and msg['message'].strip() != "":
-            print("::error%sfile={file},line={line},endLine={endLine},title={title}:: {message}".format(**msg) % (
-                        msg['indent'] * " "))
-        else:
-            print("::error%sfile={file},line={line},endLine={endLine},title={title}::".format(**msg) % (
-                        msg['indent'] * " "))
-    else:
-        if 'message' in msg and msg['message'].strip() != "":
-            print("%sfile={file}, line={line}, endLine={endLine}, title={title}: {message}".format(**msg) % (
-                        msg['indent'] * " "))
-        else:
-            print("%sfile={file}, line={line}, endLine={endLine}, title={title}".format(**msg) % (msg['indent'] * " "))
-
-
-def msg(msg):
-    if oformat == "github":
-        print("::debug::%s" % (msg))
-    else:
-        print(msg)
+from crs_linter.logger import Logger
 
 
 def remove_comments(data):
@@ -85,7 +54,8 @@ def remove_comments(data):
     """
     _data = []  # new structure by lines
     lines = data.split("\n")
-    marks = re.compile("^#(| *)(SecRule|SecAction)", re.I)  # regex what catches the rules
+    # regex for matching rules
+    marks = re.compile("^#(| *)(SecRule|SecAction)", re.I)
     state = 0  # hold the state of the parser
     for l in lines:
         # if the line starts with #SecRule, #SecAction, # SecRule, # SecAction, set the marker
@@ -114,199 +84,251 @@ def generate_version_string(directory):
       v4.5.0-6-g872a90ab -> "4.6.0-dev"
       v4.5.0-0-abcd01234 -> "4.5.0"
     """
+    if not directory.is_dir():
+        raise ValueError(f"Directory {directory} does not exist")
 
-    current_version = Version.parse(get_current_version(projdir=str(directory.resolve())))
-    next_minor = current_version.bump_minor()
+    current_version = get_current_version(projdir=str(directory.resolve()))
+    if current_version is None:
+        raise ValueError(f"Can't get current version from {directory}")
+    parsed_version = Version.parse(current_version)
+    next_minor = parsed_version.bump_minor()
     version = next_minor.replace(prerelease="dev")
-    print(version)
 
     return f"OWASP_CRS/{version}"
 
 
-def main():
-    logger = logging.getLogger(__name__)
-    parser = argparse.ArgumentParser(description="CRS Rules Check tool")
-    parser.add_argument("-o", "--output", dest="output", help="Output format native[default]|github", required=False)
-    parser.add_argument("-d", "--directory", dest="directory", type=pathlib.Path,
-                        help='Directory path to CRS git repository', required=False)
-    parser.add_argument("-r", "--rules", metavar='/path/to/coreruleset/*.conf', type=str,
-                        nargs='*', help='Directory path to CRS rules', required=True,
-                        action="append")
-    parser.add_argument("-t", "--tags-list", dest="tagslist", help="Path to file with permitted tags", required=True)
-    parser.add_argument("-v", "--version", dest="version", help="Version string", required=False)
-    args = parser.parse_args()
-    crspath = []
-    for l in args.rules:
-        crspath += l
-
-    if args.output is not None:
-        if args.output not in ["native", "github"]:
-            print("--output can be one of the 'native' or 'github'. Default value is 'native'")
-            sys.exit(1)
-    oformat = args.output
-
-    if args.version is None:
-        # if no --version/-v was given, get version from git describe --tags output
-        crsversion = generate_version_string(args.directory)
-    else:
-        crsversion = args.version.strip()
-    # if no "OWASP_CRS/" prefix, append it
-    if not crsversion.startswith("OWASP_CRS/"):
-        crsversion = "OWASP_CRS/" + crsversion
-
-    tags = []
+def get_tags_from_file(filename):
     try:
-        with open(args.tagslist, "r") as fp:
+        with open(filename, "r") as fp:
             tags = [l.strip() for l in fp.readlines()]
             # remove empty items, if any
-            tags = list(filter(lambda x: len(x) > 0, tags))
+            tags = [l for l in tags if len(l) > 0]
     except:
-        errmsg("Can't open tags list: %s" % args.tagslist)
+        logger.error(f"Can't open tags list: {filename}")
         sys.exit(1)
 
-    retval = 0
+    return tags
+
+
+def get_crs_version(directory, version=None):
+    crs_version = ""
+    if version is None:
+        # if no --version/-v was given, get version from git describe --tags output
+        crs_version = generate_version_string(directory)
+    else:
+        crs_version = version.strip()
+    # if no "OWASP_CRS/"prefix, prepend it
+    if not crs_version.startswith("OWASP_CRS/"):
+        crs_version = "OWASP_CRS/" + crs_version
+
+    return crs_version
+
+
+def check_indentation(filename, content):
+    error = False
+
+    ### make a diff to check the indentations
     try:
-        flist = crspath
-        flist.sort()
+        with open(filename, "r") as fp:
+            from_lines = fp.readlines()
+            if filename.startswith("crs-setup.conf.example"):
+                from_lines = remove_comments("".join(from_lines)).split("\n")
+                from_lines = [l + "\n" for l in from_lines]
     except:
-        errmsg("Can't open files in given path!")
-        sys.exit(1)
+        logger.error(f"Can't open file for indentation check: {filename}")
+        error = True
 
-    if len(flist) == 0:
-        errmsg("List of files is empty!")
-        sys.exit(1)
+    # virtual output
+    writer = msc_pyparser.MSCWriter(content)
+    writer.generate()
+    output = []
+    for l in writer.output:
+        output += [l + "\n" for l in l.split("\n") if l != "\n"]
 
-    parsed_structs = {}
-    txvars = {}
+    if len(from_lines) < len(output):
+        from_lines.append("\n")
+    elif len(from_lines) > len(output):
+        output.append("\n")
 
-    for f in flist:
+    diff = difflib.unified_diff(from_lines, output)
+    if from_lines == output:
+        logger.debug("Indentation check ok.")
+    else:
+        logger.debug("Indentation check found error(s)")
+        error = True
+
+    for d in diff:
+        d = d.strip("\n")
+        r = re.match(r"^@@ -(\d+),(\d+) \+\d+,\d+ @@$", d)
+        if r:
+            line1, line2 = [int(i) for i in r.groups()]
+            logger.error("an indentation error was found", file=filename, title="Indentation error", line=line1, end_line=line1 + line2)
+
+    return error
+
+
+def read_files(filenames):
+    global logger
+
+    parsed = {}
+    # filenames must be in order to correctly detect unused variables
+    filenames = sorted(filenames)
+
+    for f in filenames:
         try:
-            with open(f, 'r') as inputfile:
-                data = inputfile.read()
+            with open(f, "r") as file:
+                data = file.read()
                 # modify the content of the file, if it is the "crs-setup.conf.example"
                 if f.startswith("crs-setup.conf.example"):
                     data = remove_comments(data)
         except:
-            errmsg("Can't open file: %s" % f)
+            logger.error(f"Can't open file: {f}")
             sys.exit(1)
 
         ### check file syntax
-        msg("Config file: %s" % (f))
+        logger.info(f"Config file: {f}")
         try:
             mparser = msc_pyparser.MSCParser()
             mparser.parser.parse(data)
-            msg(" Parsing ok.")
-            parsed_structs[f] = mparser.configlines
+            logger.debug(f"Config file: {f} - Parsing OK")
+            parsed[f] = mparser.configlines
         except Exception as e:
             err = e.args[1]
-            if err['cause'] == "lexer":
+            if err["cause"] == "lexer":
                 cause = "Lexer"
             else:
                 cause = "Parser"
-            errmsg("Can't parse config file: %s" % (f))
-            errmsgf({
-                'indent': 2,
-                'file': f,
-                'title': "%s error" % (cause),
-                'line': err['line'],
-                'endLine': err['line'],
-                'message': "can't parse file"})
-            retval = 1
+            logger.error(
+                f"Can't parse config file: {f}",
+                title=f"{cause} error",
+                file=f,
+                line=err["line"],
+                end_line=err["line"],
+            )
             continue
 
-    msg("Checking parsed rules...")
-    crsver = ""
-    for f in parsed_structs.keys():
+    return parsed
 
-        msg(f)
-        c = Check(parsed_structs[f], f, txvars)
+def _version_in_argv(argv):
+    """" If version was passed as argument, make it not required """
+    if "-v" in argv or "--version" in argv:
+        return False
+    return True
+
+def parse_args(argv):
+    print(argv)
+    parser = argparse.ArgumentParser(
+        prog="crs-linter", description="CRS Rules Check tool"
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        default="native",
+        help="Output format",
+        choices=["native", "github"],
+        required=False,
+    )
+    parser.add_argument(
+        "-d",
+        "--directory",
+        dest="directory",
+        default=pathlib.Path("."),
+        type=pathlib.Path,
+        help="Directory path to CRS git repository. This is required if you don't add the version.",
+        required=_version_in_argv(argv), # this means it is required if you don't pass the version
+    )
+    parser.add_argument(
+        "--debug", dest="debug", help="Show debug information.", action="store_true"
+    )
+    parser.add_argument(
+        "-r",
+        "--rules",
+        type=str,
+        dest="crs_rules",
+        help="CRS rules file to check. Can be used multiple times.",
+        action="append",
+        required=True,
+    )
+    parser.add_argument(
+        "-t",
+        "--tags-list",
+        dest="tagslist",
+        help="Path to file with permitted tags",
+        required=True,
+    )
+    parser.add_argument(
+        "-v", "--version", dest="version", help="Check that the passed version string is used correctly.", required=False
+    )
+
+    return parser.parse_args(argv)
+
+
+def main():
+    global logger
+    retval = 0
+    args = parse_args(sys.argv[1:])
+
+    files = []
+    for r in args.crs_rules:
+        files.extend(glob.glob(r))
+
+    logger = Logger(output=args.output, debug=args.debug)
+
+    crs_version = get_crs_version(args.directory, args.version)
+    tags = get_tags_from_file(args.tagslist)
+    parsed = read_files(files)
+    txvars = {}
+
+    logger.info("Checking parsed rules...")
+    for f in parsed.keys():
+        logger.start_group(f)
+        logger.debug(f)
+        c = Check(parsed[f], f, txvars)
 
         ### check case usings
         c.check_ignore_case()
-        if len(c.caseerror) == 0:
-            msg(" Ignore case check ok.")
+        if len(c.error_case_mistmatch) == 0:
+            logger.debug("Ignore case check ok.")
         else:
-            errmsg(" Ignore case check found error(s)")
-            for a in c.caseerror:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "Case check"
-                errmsgf(a)
-                retval = 1
+            logger.error("Ignore case check found error(s)")
+            for a in c.error_case_mistmatch:
+                logger.error(
+                    a["message"],
+                    title="Case check",
+                    file=f,
+                    line=a["line"],
+                    end_line=a["endLine"],
+                )
 
         ### check action's order
         c.check_action_order()
-        if len(c.orderacts) == 0:
-            msg(" Action order check ok.")
+        if len(c.error_action_order) == 0:
+            logger.debug("Action order check ok.")
         else:
-            errmsg(" Action order check found error(s)")
-            for a in c.orderacts:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = 'Action order check'
-                errmsgf(a)
-                retval = 1
+            for a in c.error_action_order:
+                logger.error(
+                    "Action order check found error(s)",
+                    file=f,
+                    title="Action order check",
+                )
 
-        ### make a diff to check the indentations
-        try:
-            with open(f, 'r') as fp:
-                fromlines = fp.readlines()
-                if f.startswith("crs-setup.conf.example"):
-                    fromlines = remove_comments("".join(fromlines)).split("\n")
-                    fromlines = [l + "\n" for l in fromlines]
-        except:
-            errmsg("  Can't open file for indent check: %s" % (f))
+        error = check_indentation(f, parsed[f])
+        if error:
             retval = 1
-        # virtual output
-        mwriter = msc_pyparser.MSCWriter(parsed_structs[f])
-        mwriter.generate()
-        # mwriter.output.append("")
-        output = []
-        for l in mwriter.output:
-            if l == "\n":
-                output.append("\n")
-            else:
-                output += [l + "\n" for l in l.split("\n")]
-
-        if len(fromlines) < len(output):
-            fromlines.append("\n")
-        elif len(fromlines) > len(output):
-            output.append("\n")
-
-        diff = difflib.unified_diff(fromlines, output)
-        if fromlines == output:
-            msg(" Indentation check ok.")
-        else:
-            errmsg(" Indentation check found error(s)")
-            retval = 1
-        for d in diff:
-            d = d.strip("\n")
-            r = re.match(r"^@@ -(\d+),(\d+) \+\d+,\d+ @@$", d)
-            if r:
-                line1, line2 = [int(i) for i in r.groups()]
-                e = {
-                    'indent': 2,
-                    'file': f,
-                    'title': "Indentation error",
-                    'line': line1,
-                    'endLine': line1 + line2,
-                    'message': "an indentation error has found"
-                }
-                errmsgf(e)
-            errmsg(d.strip("\n"))
 
         ### check `ctl:auditLogParts=+E` right place in chained rules
         c.check_ctl_audit_log()
-        if len(c.auditlogparts) == 0:
-            msg(" no 'ctl:auditLogParts' action found.")
+        if len(c.error_wrong_ctl_auditlogparts) == 0:
+            logger.debug("no 'ctl:auditLogParts' action found.")
         else:
-            errmsg(" Found 'ctl:auditLogParts' action")
-            for a in c.auditlogparts:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "'ctl:auditLogParts' isn't allowed in CRS"
-                errmsgf(a)
-                retval = 1
+            logger.error()
+            for a in c.error_wrong_ctl_auditlogparts:
+                logger.error(
+                    "Found 'ctl:auditLogParts' action",
+                    file=f,
+                    title="'ctl:auditLogParts' isn't allowed in CRS",
+                )
 
         ### collect TX variables
         #   this method collects the TX variables, which set via a
@@ -315,134 +337,129 @@ def main():
         c.collect_tx_variable()
 
         ### check duplicate ID's
-        #   c.dupes filled during the tx variable collected
-        if len(c.dupes) == 0:
-            msg(" no duplicate id's")
+        #   c.error_duplicated_id filled during the tx variable collected
+        if len(c.error_duplicated_id) == 0:
+            logger.debug("No duplicate IDs")
         else:
-            errmsg(" Found duplicated id('s)")
-            for a in c.dupes:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "'id' is duplicated"
-                errmsgf(a)
-                retval = 1
+            logger.error("Found duplicated ID(s)", file=f, title="'id' is duplicated")
 
         ### check PL consistency
         c.check_pl_consistency()
-        if len(c.pltags) == 0:
-            msg(" paranoia-level tags are correct.")
+        if len(c.error_inconsistent_pltags) == 0:
+            logger.debug("Paranoia-level tags are correct.")
         else:
-            errmsg(" Found incorrect paranoia-level/N tag(s)")
-            for a in c.pltags:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "wrong or missing paranoia-level/N tag"
-                errmsgf(a)
-                retval = 1
-        if len(c.plscores) == 0:
-            msg(" PL anomaly_scores are correct.")
+            for a in c.error_inconsistent_pltags:
+                logger.error(
+                    "Found incorrect paranoia-level/N tag(s)",
+                    file=f,
+                    title="wrong or missing paranoia-level/N tag",
+                )
+
+        if len(c.error_inconsistent_plscores) == 0:
+            logger.debug("PL anomaly_scores are correct.")
         else:
-            errmsg(" Found incorrect (inbound|outbout)_anomaly_score value(s)")
-            for a in c.plscores:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "wrong (inbound|outbout)_anomaly_score variable or value"
-                errmsgf(a)
-                retval = 1
+            for a in c.error_inconsistent_plscores:
+                logger.error(
+                    "Found incorrect (inbound|outbout)_anomaly_score value(s)",
+                    file=f,
+                    title="wrong (inbound|outbout)_anomaly_score variable or value",
+                )
 
         ### check existence of used TX variables
         c.check_tx_variable()
-        if len(c.undef_txvars) == 0:
-            msg(" All TX variables are set.")
+        if len(c.error_undefined_txvars) == 0:
+            logger.debug("All TX variables are set.")
         else:
-            errmsg(" There are one or more unset TX variables.")
-            for a in c.undef_txvars:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "unset TX variable"
-                errmsgf(a)
-                retval = 1
+            for a in c.error_undefined_txvars:
+                logger.error(
+                    a["message"],
+                    file=f,
+                    title="unset TX variable",
+                    line=a["line"],
+                    end_line=a["endLine"],
+                )
+
         ### check new unlisted tags
         c.check_tags(tags)
-        if len(c.newtags) == 0:
-            msg(" No new tags added.")
+        if len(c.error_new_unlisted_tags) == 0:
+            logger.debug("No new tags added.")
         else:
-            errmsg(" There are one or more new tag(s).")
-            for a in c.newtags:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "new unlisted tag"
-                errmsgf(a)
-                retval = 1
+            logger.error(
+                "There are one or more new tag(s).", file=f, title="new unlisted tag"
+            )
+
         ### check for t:lowercase in combination with (?i) in regex
         c.check_lowercase_ignorecase()
-        if len(c.ignorecase) == 0:
-            msg(" No t:lowercase and (?i) flag used.")
+        if len(c.error_combined_transformation_and_ignorecase) == 0:
+            logger.debug("No t:lowercase and (?i) flag used.")
         else:
-            errmsg(" There are one or more combinations of t:lowercase and (?i) flag.")
-            for a in c.ignorecase:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "t:lowercase and (?i)"
-                errmsgf(a)
-                retval = 1
+            logger.error(
+                "There are one or more combinations of t:lowercase and (?i) flag",
+                file=f,
+                title="t:lowercase and (?i)",
+            )
+
         ### check for tag:'OWASP_CRS'
         c.check_crs_tag()
-        if len(c.nocrstags) == 0:
-            msg(" No rule without OWASP_CRS tag.")
+        if len(c.error_no_crstag) == 0:
+            logger.debug("No rule without OWASP_CRS tag.")
         else:
-            errmsg(" There are one or more rules without OWASP_CRS tag.")
-            for a in c.nocrstags:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "tag:OWASP_CRS is missing"
-                errmsgf(a)
-                retval = 1
+            logger.error(
+                "There are one or more rules without OWASP_CRS tag",
+                file=f,
+                title="tag:OWASP_CRS is missing",
+            )
+
         ### check for ver action
-        c.check_ver_action(crsversion)
-        if len(c.noveract) == 0:
-            msg(" No rule without correct ver action.")
+        c.check_ver_action(crs_version)
+        if len(c.error_no_ver_action_or_wrong_version) == 0:
+            logger.debug("No rule without correct ver action.")
         else:
-            errmsg(" There are one or more rules without ver action.")
-            for a in c.noveract:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "ver is missing / incorrect"
-                errmsgf(a)
-                retval = 1
+            logger.error(
+                "There are one or more rules with incorrect ver action.",
+                file=f,
+                title="ver is missing / incorrect",
+            )
 
         c.check_capture_action()
-        if len(c.nocaptact) == 0:
-            msg(" No rule uses TX.N without capture action.")
+        if len(c.error_tx_N_without_capture_action) == 0:
+            logger.debug("No rule uses TX.N without capture action.")
         else:
-            errmsg(" There are one or more rules using TX.N without capture action.")
-            for a in c.nocaptact:
-                a['indent'] = 2
-                a['file'] = f
-                a['title'] = "capture is missing"
-                errmsgf(a)
-                retval = 1
+            logger.error(
+                "There are one or more rules using TX.N without capture action.",
+                file=f,
+                title="capture is missing",
+            )
 
-    msg("End of checking parsed rules")
-    msg("Cumulated report about unused TX variables")
+        # set it once if there is an error
+        if c.is_error():
+            logger.debug(f"Error(s) found in {f}.")
+            retval = 1
+
+        logger.end_group()
+    logger.debug("End of checking parsed rules")
+
+    logger.debug("Cumulated report about unused TX variables")
     has_unused = False
     for tk in txvars:
-        if txvars[tk]['used'] == False:
+        if txvars[tk]["used"] == False:
             if has_unused == False:
-                msg(" Unused TX variable(s):")
+                logger.debug("Unused TX variable(s):")
             a = txvars[tk]
-            a['indent'] = 2
-            a['title'] = "unused TX variable"
-            a['message'] = "unused variable: %s" % (tk)
-            errmsgf(a)
-            retval = 1
+            logger.error(
+                f"unused variable: {tk}",
+                title="unused TX variable",
+                line=a["line"],
+                end_line=a["endLine"],
+            )
             has_unused = True
 
-    if has_unused == False:
-        msg(" No unused TX variable")
+    if not has_unused:
+        logger.debug("No unused TX variable")
 
-    sys.exit(retval)
+    logger.debug(f"retval: {retval}")
+    return retval
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

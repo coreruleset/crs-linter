@@ -1,7 +1,14 @@
 ---
 name: Regression Tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
 
 jobs:
   regression:
@@ -9,7 +16,8 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        crs-version: ['4.10.0']
+        # renovate: datasource=github-releases depName=coreruleset/coreruleset
+        crs-version: ['4.11.0']
         python-version: ['3.9', '3.10', '3.11', '3.12']
 
     steps:
@@ -20,7 +28,6 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
 
       - name: Set up Python 3
         uses: actions/setup-python@v5
@@ -37,6 +44,6 @@ jobs:
 
       - name: "Run crs linter tests for ${{ matrix.crs-version }}"
         run: |
-          curl -SLs  https://github.com/coreruleset/coreruleset/archive/refs/tags/v${{ matrix.crs-version }}.tar.gz -o - | \
-            tar xzvf - --strip-components=1 --wildcards "*/rules/*" --wildcards "*/crs-setup.conf.example" --wildcards "*/util/APPROVED_TAGS"
-          uv run crs-linter --output=github -r crs-setup.conf.example -r rules/*.conf -t util/APPROVED_TAGS -v ${{ matrix.crs-version }}
+          curl -sSL  https://github.com/coreruleset/coreruleset/archive/refs/tags/v${{ matrix.crs-version }}.tar.gz -o - | \
+            tar xzvf - --strip-components=1 --wildcards "*/rules/*" "*/crs-setup.conf.example"
+          uv run crs-linter --debug -o github -d . -r crs-setup.conf.example -r 'rules/*.conf' -t APPROVED_TAGS -v ${{ matrix.crs-version }}

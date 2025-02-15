@@ -14,47 +14,47 @@ def test_check_ignore_proper_case():
     c = Check(p)
     c.check_ignore_case()
 
-    assert len(c.caseerror) == 0
+    assert len(c.error_case_mistmatch) == 0
 
 
 def test_check_ignore_case_fail_invalid_action_case():
-    """ Two actions are in the wrong case. """
+    """Two actions are in the wrong case."""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,LOG,NoLOg,status:403"'
     p = parse_config(t)
     c = Check(p)
     c.check_ignore_case()
 
-    assert len(c.caseerror) == 2
+    assert len(c.error_case_mistmatch) == 2
 
 
 def test_check_action_order():
-    """ Test that the actions are in the correct order. """
+    """Test that the actions are in the correct order."""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,nolog"'
     p = parse_config(t)
     c = Check(p)
     c.check_action_order()
 
-    assert len(c.orderacts) == 0
+    assert len(c.error_action_order) == 0
 
 
 def test_check_action_fail_wrong_order():
-    """ Test if the action is in the wrong order. status should go before log """
+    """Test if the action is in the wrong order. status should go before log"""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Check(p)
     c.check_action_order()
 
-    assert len(c.orderacts) == 1
+    assert len(c.error_action_order) == 1
 
 
 def test_check_ctl_auditctl_log_parts():
-    """ Test that there is no ctl:auditLogParts action in any rules"""
+    """Test that there is no ctl:auditLogParts action in any rules"""
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Check(p)
     c.check_ctl_audit_log()
 
-    assert len(c.auditlogparts) == 0
+    assert len(c.error_wrong_ctl_auditlogparts) == 0
 
 
 def test_check_wrong_ctl_audit_log_parts():
@@ -63,11 +63,11 @@ def test_check_wrong_ctl_audit_log_parts():
     c = Check(p)
     c.check_ctl_audit_log()
 
-    assert len(c.auditlogparts) == 1
+    assert len(c.error_wrong_ctl_auditlogparts) == 1
 
 
 def test_check_tx_variable():
-    """ Test that variables are defined in the transaction """
+    """Test that variables are defined in the transaction"""
     t = """SecRule &TX:blocking_paranoia_level "@eq 0" \
     "id:901120,\
     phase:1,\
@@ -88,7 +88,7 @@ SecRule &TX:detection_paranoia_level "@eq 0" \
     c = Check(p)
     c.check_tx_variable()
 
-    assert len(c.undef_txvars) == 0
+    assert len(c.error_undefined_txvars) == 0
 
 
 def test_check_tx_variable_fail_nonexisting():
@@ -110,7 +110,7 @@ SecRule ARGS "@rx ^.*$" \
     c.collect_tx_variable()
     c.check_tx_variable()
 
-    assert len(c.undef_txvars) == 1
+    assert len(c.error_undefined_txvars) == 1
 
 
 def test_check_pl_consistency():
@@ -146,7 +146,7 @@ def test_check_pl_consistency():
     c.collect_tx_variable()
     c.check_pl_consistency()
 
-    assert len(c.plscores) == 0
+    assert len(c.error_inconsistent_plscores) == 0
 
 
 def test_check_pl_consistency_fail():
@@ -182,7 +182,7 @@ def test_check_pl_consistency_fail():
     c.collect_tx_variable()
     c.check_pl_consistency()
 
-    assert len(c.plscores) == 1
+    assert len(c.error_inconsistent_plscores) == 1
 
 
 def test_check_tags():
@@ -197,9 +197,9 @@ def test_check_tags():
         """
     p = parse_config(t)
     c = Check(p)
-    c.check_tags(['PIZZA', 'OWASP_CRS'])
+    c.check_tags(["PIZZA", "OWASP_CRS"])
 
-    assert len(c.newtags) == 0
+    assert len(c.error_new_unlisted_tags) == 0
 
 
 def test_check_tags_fail():
@@ -214,9 +214,9 @@ def test_check_tags_fail():
         """
     p = parse_config(t)
     c = Check(p)
-    c.check_tags(['OWASP_CRS', 'PIZZA'])
+    c.check_tags(["OWASP_CRS", "PIZZA"])
 
-    assert len(c.newtags) == 1
+    assert len(c.error_new_unlisted_tags) == 1
 
 
 def test_check_lowercase_ignorecase():
@@ -242,7 +242,7 @@ SecRule REQUEST_URI "@rx index.php" \
     c = Check(p)
     c.check_crs_tag()
 
-    assert len(c.nocrstags) == 0
+    assert len(c.error_no_crstag) == 0
 
 
 def test_check_crs_tag_fail():
@@ -259,7 +259,7 @@ SecRule REQUEST_URI "@rx index.php" \
     c = Check(p)
     c.check_crs_tag()
 
-    assert len(c.nocrstags) == 1
+    assert len(c.error_no_crstag) == 1
 
 
 def test_check_ver_action(crsversion):
@@ -277,7 +277,7 @@ SecRule REQUEST_URI "@rx index.php" \
     c = Check(p)
     c.check_ver_action(crsversion)
 
-    assert len(c.noveract) == 0
+    assert len(c.error_no_ver_action_or_wrong_version) == 0
 
 
 def test_check_ver_action_fail(crsversion):
@@ -295,7 +295,7 @@ SecRule REQUEST_URI "@rx index.php" \
     c = Check(p)
     c.check_ver_action(crsversion)
 
-    assert len(c.noveract) == 1
+    assert len(c.error_no_ver_action_or_wrong_version) == 1
 
 
 def test_check_capture_action():
@@ -316,7 +316,7 @@ SecRule ARGS "@rx attack" \
     c = Check(p)
     c.check_capture_action()
 
-    assert len(c.nocaptact) == 0
+    assert len(c.error_tx_N_without_capture_action) == 0
 
 
 def test_check_capture_action_fail():
@@ -336,4 +336,4 @@ SecRule ARGS "@rx attack" \
     c = Check(p)
     c.check_capture_action()
 
-    assert len(c.nocaptact) == 1
+    assert len(c.error_tx_N_without_capture_action) == 1
