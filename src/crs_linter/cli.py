@@ -10,9 +10,14 @@ import re
 from dulwich.contrib.release_robot import get_current_version, get_recent_tags
 from semver import Version
 
-from crs_linter.linter import Check
-from crs_linter.logger import Logger
-
+try:
+    from linter import Check
+except:
+    from crs_linter.linter import Check
+try:
+    from logger import Logger
+except:
+    from crs_linter.logger import Logger
 
 def remove_comments(data):
     """
