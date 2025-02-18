@@ -1,39 +1,48 @@
-import sys
 import msc_pyparser
-import difflib
-import argparse
 import re
-import subprocess
-import logging
-import os.path
 
-def parse_config(text):
-    try:
-        mparser = msc_pyparser.MSCParser()
-        mparser.parser.parse(text)
-        return mparser.configlines
+class LintProblem:
+    """Represents a linting problem found by crs-linter."""
+    def __init__(self, line, end_line, column=None, desc='<no description>', rule=None):
+        #: Line on which the problem was found (starting at 1)
+        self.line = line
+        #: Line on which the problem ends
+        self.end_line = end_line
+        #: Column on which the problem was found (starting at 1)
+        self.column = column
+        #: Human-readable description of the problem
+        self.desc = desc
+        #: Identifier of the rule that detected the problem
+        self.rule = rule
+        self.level = None
 
-    except Exception as e:
-        print(e)
+    @property
+    def message(self):
+        if self.rule is not None:
+            return f'{self.desc} ({self.rule})'
+        return self.desc
+
+    def __eq__(self, other):
+        return (self.line == other.line and
+                self.column == other.column and
+                self.rule == other.rule)
+
+    def __lt__(self, other):
+        return (self.line < other.line or
+                (self.line == other.line and self.column < other.column))
+
+    def __repr__(self):
+        return f'{self.line}:{self.column}: {self.message}'
 
 
-def parse_file(filename):
-    try:
-        mparser = msc_pyparser.MSCParser()
-        with open(filename, "r") as f:
-            mparser.parser.parse(f.read())
-        return mparser.configlines
+class Linter:
+    ids = {}  # list of rule id's and their location in files
+    vars = {}  # list of TX variables and their location in files
 
-    except Exception as e:
-        print(e)
-
-
-class Check():
-    def __init__(self, data, filename=None, txvars={}):
-
+    def __init__(self, data, filename=None, txvars=None):
         # txvars is a global used hash table, but processing of rules is a sequential flow
         # all rules need this global table
-        self.globtxvars = txvars
+        self.globtxvars = txvars or {}
         # list available operators, actions, transformations and ctl args
         self.operators = "beginsWith|containsWord|contains|detectSQLi|detectXSS|endsWith|eq|fuzzyHash|geoLookup|ge|gsbLookup|gt|inspectFile|ipMatch|ipMatchF|ipMatchFromFile|le|lt|noMatch|pmFromFile|pmf|pm|rbl|rsub|rx|streq|strmatch|unconditionalMatch|validateByteRange|validateDTD|validateHash|validateSchema|validateUrlEncoding|validateUtf8Encoding|verifyCC|verifyCPF|verifySSN|within".split(
             "|"
@@ -101,7 +110,6 @@ class Check():
         self.ids = {}  # list of rule id's and their location in files
 
         # Any of these variables below are used to store the errors
-
         self.error_case_mistmatch = []  # list of case mismatch errors
         self.error_action_order = []  # list of ordered action errors
         self.error_wrong_ctl_auditlogparts = []  # list of wrong ctl:auditLogParts
@@ -120,10 +128,11 @@ class Check():
         self.error_tx_N_without_capture_action = (
             []
         )  # list of rules which uses TX.N without previous 'capture'
-        self.error_rule_hasnotest  = (
+        self.error_rule_hasnotest = (
             []
         )  # list of rules which don't have any tests
         # regex to produce tag from filename:
+        import os.path
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
         self.filename_tag_exclusions = []
 
@@ -231,6 +240,7 @@ class Check():
                     e["message"] += f" (rule: {self.current_ruleid})"
 
     def check_action_order(self):
+        import sys
         for d in self.data:
             if "actions" in d:
                 max_order = 0  # maximum position of read actions
@@ -771,6 +781,7 @@ class Check():
         """
         generate tag from filename
         """
+        import os.path
         filename_for_tag = fname if fname is not None else self.filename
         filename = self.re_fname.sub("", os.path.basename(os.path.splitext(filename_for_tag)[0]))
         filename = filename.replace("APPLICATION-", "")
@@ -993,3 +1004,32 @@ class Check():
                                         'message': f"rule does not have any tests; rule id: {rid}'"
                                     })
         return True
+
+
+def parse_config(text):
+    try:
+        mparser = msc_pyparser.MSCParser()
+        mparser.parser.parse(text)
+        return mparser.configlines
+
+    except Exception as e:
+        print(e)
+
+
+def parse_file(filename):
+    try:
+        mparser = msc_pyparser.MSCParser()
+        with open(filename, "r") as f:
+            mparser.parser.parse(f.read())
+        return mparser.configlines
+
+    except Exception as e:
+        print(e)
+
+
+def get_id(actions):
+    """ Return the ID from actions """
+    for a in actions:
+        if a["act_name"] == "id":
+            return int(a["act_arg"])
+    return 0
