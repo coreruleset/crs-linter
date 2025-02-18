@@ -221,7 +221,6 @@ def _version_in_argv(argv):
     return True
 
 def parse_args(argv):
-    print(argv)
     parser = argparse.ArgumentParser(
         prog="crs-linter", description="CRS Rules Check tool"
     )
