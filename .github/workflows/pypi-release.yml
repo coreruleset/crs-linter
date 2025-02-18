@@ -11,13 +11,22 @@ on:
 
 jobs:
   test:
-    name: Test Release
+    name:  Release
     runs-on: ubuntu-latest
     steps:
-      - name: Publish to pypi
-        uses: coveooss/pypi-publish-with-poetry@v1.0.0
+      - uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
         with:
-          project-name: secrules-parsing
-          pypi-token: ${{ secrets.PYPI_TOKEN }}
-          pre-release: ${{ github.ref != 'refs/heads/master' }}
-          dry-run: ${{ github.ref != 'refs/heads/master' && github.event.inputs.publish != 'true' }}
+          python-version-file: "pyproject.toml"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.1"
+
+      - name: Publish
+        run: |
+          uv build
+          uv publish --index testpypi
