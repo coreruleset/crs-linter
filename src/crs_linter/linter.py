@@ -137,7 +137,6 @@ class Check():
             self.error_no_ver_action_or_wrong_version,
             self.error_tx_N_without_capture_action,
         ]
-        print(f"Checking for errors: {error_vars}")
         return any([len(var) > 0 for var in error_vars])
 
     def store_error(self, msg):
