@@ -10,9 +10,14 @@ import re
 from dulwich.contrib.release_robot import get_current_version, get_recent_tags
 from semver import Version
 
-from crs_linter.linter import Linter
-from crs_linter.logger import Logger
-
+try:
+    from linter import Linter
+except:
+    from crs_linter.linter import Linter
+try:
+    from logger import Logger
+except:
+    from crs_linter.logger import Logger
 
 def remove_comments(data):
     """
@@ -173,7 +178,6 @@ def _version_in_argv(argv):
     return True
 
 def parse_args(argv):
-    print(argv)
     parser = argparse.ArgumentParser(
         prog="crs-linter", description="CRS Rules Linter tool"
     )
