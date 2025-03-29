@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 
 import github_action_utils as gha_utils
 
@@ -9,9 +10,9 @@ class Logger:
         self.debugging = debug
         level = logging.INFO
         if self.output == "native":
+            level = logging.DEBUG if self.debugging else logging.INFO
+            logging.basicConfig(level=level)
             self.logger = logging.getLogger()
-            if self.debugging:
-                level = logging.DEBUG
             self.logger.setLevel(level)
         else:
             self.logger = gha_utils
