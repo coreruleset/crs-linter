@@ -11,9 +11,9 @@ from dulwich.contrib.release_robot import get_current_version, get_recent_tags
 from semver import Version
 
 try:
-    from linter import Check
+    from linter import Linter
 except:
-    from crs_linter.linter import Check
+    from crs_linter.linter import Linter
 try:
     from logger import Logger
 except:
@@ -129,49 +129,6 @@ def get_crs_version(directory, version=None):
     return crs_version
 
 
-def check_indentation(filename, content):
-    error = False
-
-    ### make a diff to check the indentations
-    try:
-        with open(filename, "r") as fp:
-            from_lines = fp.readlines()
-            if filename.startswith("crs-setup.conf.example"):
-                from_lines = remove_comments("".join(from_lines)).split("\n")
-                from_lines = [l + "\n" for l in from_lines]
-    except:
-        logger.error(f"Can't open file for indentation check: {filename}")
-        error = True
-
-    # virtual output
-    writer = msc_pyparser.MSCWriter(content)
-    writer.generate()
-    output = []
-    for l in writer.output:
-        output += [l + "\n" for l in l.split("\n") if l != "\n"]
-
-    if len(from_lines) < len(output):
-        from_lines.append("\n")
-    elif len(from_lines) > len(output):
-        output.append("\n")
-
-    diff = difflib.unified_diff(from_lines, output)
-    if from_lines == output:
-        logger.debug("Indentation check ok.")
-    else:
-        logger.debug("Indentation check found error(s)")
-        error = True
-
-    for d in diff:
-        d = d.strip("\n")
-        r = re.match(r"^@@ -(\d+),(\d+) \+\d+,\d+ @@$", d)
-        if r:
-            line1, line2 = [int(i) for i in r.groups()]
-            logger.error("an indentation error was found", file=filename, title="Indentation error", line=line1, end_line=line1 + line2)
-
-    return error
-
-
 def read_files(filenames):
     global logger
 
@@ -222,7 +179,7 @@ def _version_in_argv(argv):
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
-        prog="crs-linter", description="CRS Rules Check tool"
+        prog="crs-linter", description="CRS Rules Linter tool"
     )
     parser.add_argument(
         "-o",
@@ -262,7 +219,7 @@ def parse_args(argv):
         required=True,
     )
     parser.add_argument(
-        "-v", "--version", dest="version", help="Check that the passed version string is used correctly.", required=False
+        "-v", "--version", dest="version", help="Linter that the passed version string is used correctly.", required=False
     )
 
     return parser.parse_args(argv)
@@ -288,7 +245,8 @@ def main():
     for f in parsed.keys():
         logger.start_group(f)
         logger.debug(f)
-        c = Check(parsed[f], f, txvars)
+        c = Linter(parsed[f], f, txvars)
+
 
         ### check case usings
         c.check_ignore_case()
