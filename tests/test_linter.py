@@ -236,7 +236,7 @@ SecRule REQUEST_URI "@rx index.php" \
     deny,\
     t:none,\
     nolog,\
-    tag:OWASP_CRS",\
+    tag:OWASP_CRS,\
     tag:OWASP_CRS/CHECK-TAG"
     """
     p = parse_config(t)
