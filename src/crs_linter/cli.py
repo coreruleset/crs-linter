@@ -7,6 +7,7 @@ import msc_pyparser
 import difflib
 import argparse
 import re
+import os.path
 from dulwich.contrib.release_robot import get_current_version, get_recent_tags
 from semver import Version
 
@@ -408,10 +409,11 @@ def main():
         if len(c.error_no_crstag) == 0:
             logger.debug("No rule without OWASP_CRS tag.")
         else:
+            filenametag = c.gen_crs_file_tag()
             logger.error(
-                "There are one or more rules without OWASP_CRS tag",
+                "There are one or more rules without OWASP_CRS or %s tag" % (filenametag),
                 file=f,
-                title="tag:OWASP_CRS is missing",
+                title="'tag:OWASP_CRS' or 'tag:OWASP_CRS/%s' is missing" % (filenametag)
             )
 
         ### check for ver action

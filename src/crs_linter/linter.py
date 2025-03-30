@@ -5,7 +5,7 @@ import argparse
 import re
 import subprocess
 import logging
-
+import os.path
 
 def parse_config(text):
     try:
@@ -120,6 +120,8 @@ class Check():
         self.error_tx_N_without_capture_action = (
             []
         )  # list of rules which uses TX.N without previous 'capture'
+        # regex to produce tag from filename:
+        self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
 
     def is_error(self):
         """Returns True if any error is found"""
@@ -761,13 +763,25 @@ class Check():
                                             }
                                         )
 
+    def gen_crs_file_tag(self):
+        """
+        generate tag from filename
+        """
+        filename = self.re_fname.sub("", os.path.basename(self.filename.replace(".conf", "")))
+        filename = filename.replace("APPLICATION-", "")
+        return "/".join(["OWASP_CRS", filename])
+
     def check_crs_tag(self):
         """
-        check that every rule has a `tag:'OWASP_CRS'` action
+        check that every rule has a `tag:'OWASP_CRS'` and `tag:'$FILENAME$'` action
         """
+        filenametag = self.gen_crs_file_tag()
         chained = False
         ruleid = 0
         has_crs = False
+        has_crs_fname = False
+        tagcnt = 0   # counter to help check
+        crstagnr = 0 # hold the position of OWASP_CRS tag
         for d in self.data:
             if "actions" in d:
                 chainlevel = 0
@@ -775,6 +789,7 @@ class Check():
                 if not chained:
                     ruleid = 0
                     has_crs = False
+                    has_crs_fname = False
                     chainlevel = 0
                 else:
                     chained = False
@@ -785,9 +800,14 @@ class Check():
                         chained = True
                         chainlevel += 1
                     if a["act_name"] == "tag":
+                        tagcnt += 1
                         if chainlevel == 0:
                             if a["act_arg"] == "OWASP_CRS":
                                 has_crs = True
+                                crstagnr = tagcnt
+                            if a['act_arg'] == filenametag:
+                                if tagcnt == crstagnr + 1:
+                                    has_crs_fname = True
                 if ruleid > 0 and not has_crs:
                     self.error_no_crstag.append(
                         {
@@ -797,6 +817,24 @@ class Check():
                             "message": f"rule does not have tag with value 'OWASP_CRS'; rule id: {ruleid}",
                         }
                     )
+                # see the exclusion list of files which does not require the filename tag
+                if filenametag not in ["OWASP_CRS/crs-setup.example", \
+                                       "OWASP_CRS/INITIALIZATION", \
+                                       "OWASP_CRS/BLOCKING-EVALUATION", \
+                                       "OWASP_CRS/COMMON-EXCEPTIONS", \
+                                       "OWASP_CRS/CORRELATION"]:
+                    # check if wether the rule is admin rule or not
+                    is_admin_rule = True if (ruleid % 1000 < 100) else False
+                    # admin rules does not need filename tags
+                    if not is_admin_rule and not has_crs_fname:
+                        self.error_no_crstag.append(
+                            {
+                                "ruleid": ruleid,
+                                "line": a["lineno"],
+                                "endLine": a["lineno"],
+                                "message": f"rule does not have tag with value '{filenametag}'; rule id: {ruleid}",
+                            }
+                        )
 
     def check_ver_action(self, version):
         """

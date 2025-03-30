@@ -44,7 +44,7 @@ Second, the script loops over each of the parsed structures. Each iteration cons
 * **Check rule tags** - only tags listed in `util/APPROVED_TAGS` may be used as tags in rules
     * to use a new tag on a rule, it **must** first be registered in the util/APPROVED_TAGS file
 * **Check t:lowercase and (?i) flag** - No combination of t:lowercase and (?i) should appear in the same rule.
-* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`
+* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non administrative rules must have a tag with value `OWASP_CRS/$filename$`
 * **Check rule has a `ver` action with correct version** - Every rule must have `ver` action with correct value
     * script accepts `-v` or `--version` argument if you want to pass it manually
     * if no `-v` was given, the script tries to extract the version from result of `git describe --tags`
@@ -470,7 +470,7 @@ SecRule REQUEST_URI "@rx index.php" \
     tag:attack-xss"
 ```
 
-Rule 1 does not have `tag:OWASP_CRS`
+Rule 1 does not have `tag:OWASP_CRS` nor `t:OWASP_CRS/test11`
 
 ```
 crs-linter -r examples/test11.conf -t ../APPROVED_TAGS
@@ -489,7 +489,7 @@ examples/test11.conf
  No new tags added.
  No t:lowercase and (?i) flag used.
  There are one or more rules without OWASP_CRS tag.
-  file=examples/test11.conf, line=8, endLine=8, title=tag:OWASP_CRS is missing: rule does not have tag with value 'OWASP_CRS'; rule id: 1
+  file=examples/test11.conf, line=8, endLine=8, title=tag:OWASP_CRS is missing: rule does not have tag with value 'OWASP_CRS' nor 'OWASP_CRS/test11'; rule id: 1
  There are one or more rules without ver action.
   file=examples/test11.conf, line=8, endLine=8, title=ver is missing / incorrect: rule does not have 'ver' action; rule id: 1
 End of checking parsed rules
