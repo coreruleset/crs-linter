@@ -1,6 +1,6 @@
 [project]
 name = "crs-linter"
-version = "0.1.0"
+version = "0.1.1"
 description = "CRS linter"
 authors = [
   {name = "Ervin Hegedus", email = "airween@gmail.com"}
