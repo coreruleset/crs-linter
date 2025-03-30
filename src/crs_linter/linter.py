@@ -806,7 +806,7 @@ class Check():
                                 has_crs = True
                                 crstagnr = tagcnt
                             if a['act_arg'] == filenametag:
-                                if tagcnt == crstagnr + 1:
+                                if crstagnr == 0 or tagcnt == crstagnr + 1:
                                     has_crs_fname = True
                 if ruleid > 0 and not has_crs:
                     self.error_no_crstag.append(
