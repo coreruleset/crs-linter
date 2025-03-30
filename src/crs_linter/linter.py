@@ -845,7 +845,7 @@ class Check():
                     )
                 # see the exclusion list of files which does not require the filename tag
                 if filenametag not in self.filename_tag_exclusions:
-                    # check if wether the rule is admin rule or not
+                # check if wether the rule is admin rule or not
                     is_admin_rule = True if (ruleid % 1000 < 100) else False
                     # admin rules does not need filename tags
                     if not is_admin_rule and not has_crs_fname:
