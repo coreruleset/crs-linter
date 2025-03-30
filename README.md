@@ -15,7 +15,23 @@ pip3 install crs-linter
 
 ## How does it work
 
-The script expects an argument at least - this would be a single file or a file list, eg: `/path/to/coreruleset/*.conf`.
+The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will get some similar output:
+
+```bash
+usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION]
+crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
+```
+
+#### Arguments review
+
+* `-h` - gives help
+* `-o` - output format, van be `native` (default) or `github`; Note, that `github` format follows [GH](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message) suggestion
+* `-d` - directory path to CRS git repository. This is required if you don't add the version.
+* `--debug` - show debug information
+* `-r` - CRS rules file to check, can be used multiple times, eg `-r ../path/to/crs-setup.conf -r "../path/to/rules/*.conf"`
+* `-t` - path to file which contains list of approved tags; only tags allowed at rules which are listed in this file
+* `-v` - CRS version, optional
+* `-f` - path to the file containing the list of files that do not need to be checked for filename tags, optional
 
 First, an attempt is made to parse each file specified on the command line. This is a "pre-check", and runs on all files before the other tests.
   * **Parsing check** - try to parse the structure, this is a syntax check
@@ -44,7 +60,7 @@ Second, the script loops over each of the parsed structures. Each iteration cons
 * **Check rule tags** - only tags listed in `util/APPROVED_TAGS` may be used as tags in rules
     * to use a new tag on a rule, it **must** first be registered in the util/APPROVED_TAGS file
 * **Check t:lowercase and (?i) flag** - No combination of t:lowercase and (?i) should appear in the same rule.
-* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non administrative rules must have a tag with value `OWASP_CRS/$filename$`
+* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non administrative rules must have a tag with value `OWASP_CRS/$filename$`. You can pass a file with list of exclusions of files which don't need these tags. `crs_linter` directory contains an example, see `FILENAME_EXCLUSIONS`.
 * **Check rule has a `ver` action with correct version** - Every rule must have `ver` action with correct value
     * script accepts `-v` or `--version` argument if you want to pass it manually
     * if no `-v` was given, the script tries to extract the version from result of `git describe --tags`

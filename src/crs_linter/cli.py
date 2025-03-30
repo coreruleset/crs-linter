@@ -103,17 +103,17 @@ def generate_version_string(directory):
     return f"OWASP_CRS/{version}"
 
 
-def get_tags_from_file(filename):
+def get_lines_from_file(filename):
     try:
         with open(filename, "r") as fp:
-            tags = [l.strip() for l in fp.readlines()]
+            lines = [l.strip() for l in fp.readlines()]
             # remove empty items, if any
-            tags = [l for l in tags if len(l) > 0]
+            lines = [l for l in lines if len(l) > 0]
     except:
         logger.error(f"Can't open tags list: {filename}")
         sys.exit(1)
 
-    return tags
+    return lines
 
 
 def get_crs_version(directory, version=None):
@@ -265,6 +265,13 @@ def parse_args(argv):
     parser.add_argument(
         "-v", "--version", dest="version", help="Check that the passed version string is used correctly.", required=False
     )
+    parser.add_argument(
+        "-f",
+        "--filename-tags",
+        dest="filename_tags_exclusions",
+        help="Path to file with excluded filename tags",
+        required=False,
+    )
 
     return parser.parse_args(argv)
 
@@ -281,7 +288,13 @@ def main():
     logger = Logger(output=args.output, debug=args.debug)
 
     crs_version = get_crs_version(args.directory, args.version)
-    tags = get_tags_from_file(args.tagslist)
+    tags = get_lines_from_file(args.tagslist)
+    if args.filename_tags_exclusions is None:
+        # if no filename_tags_exclusions is given, set it to empty list
+        # this means that all files are checked
+        filename_tags_exclusions = []
+    else:
+        filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
     parsed = read_files(files)
     txvars = {}
 
@@ -405,7 +418,7 @@ def main():
             )
 
         ### check for tag:'OWASP_CRS'
-        c.check_crs_tag()
+        c.check_crs_tag(filename_tags_exclusions)
         if len(c.error_no_crstag) == 0:
             logger.debug("No rule without OWASP_CRS tag.")
         else:

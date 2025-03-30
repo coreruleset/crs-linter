@@ -53,7 +53,7 @@ class Check():
         self.ctlsl = [c.lower() for c in self.ctls]
 
         # list the actions in expected order
-        # see wiki: https://github.com/SpiderLabs/owasp-modsecurity-crs/wiki/Order-of-ModSecurity-Actions-in-CRS-rules
+        # see wiki: https://github.com/coreruleset/coreruleset/wiki/Order-of-ModSecurity-Actions-in-CRS-rules
         # note, that these tokens are with lovercase here, but used only for to check the order
         self.ordered_actions = [
             "id",  # 0
@@ -122,6 +122,10 @@ class Check():
         )  # list of rules which uses TX.N without previous 'capture'
         # regex to produce tag from filename:
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
+<<<<<<< HEAD
+=======
+        self.filename_tag_exclusions = []
+>>>>>>> 612b861 (Add optional argument for filename tag exclusions)
 
     def is_error(self):
         """Returns True if any error is found"""
@@ -763,6 +767,7 @@ class Check():
                                             }
                                         )
 
+<<<<<<< HEAD
     def gen_crs_file_tag(self):
         """
         generate tag from filename
@@ -776,6 +781,27 @@ class Check():
         check that every rule has a `tag:'OWASP_CRS'` and `tag:'$FILENAME$'` action
         """
         filenametag = self.gen_crs_file_tag()
+=======
+    def gen_crs_file_tag(self, fname=None):
+        """
+        generate tag from filename
+        """
+        if fname is None:
+            filename = self.re_fname.sub("", os.path.basename(self.filename.replace(".conf", "")))
+        else:
+            filename = self.re_fname.sub("", os.path.basename(fname.replace(".conf", "")))
+        filename = filename.replace("APPLICATION-", "")
+        return "/".join(["OWASP_CRS", filename])
+
+    def check_crs_tag(self, excl_list):
+        """
+        check that every rule has a `tag:'OWASP_CRS'` and `tag:'$FILENAME$'` action
+        """
+        filenametag = self.gen_crs_file_tag()
+        if len(self.filename_tag_exclusions) == 0:
+            if len(excl_list) > 0:
+                self.filename_tag_exclusions = [self.gen_crs_file_tag(f) for f in excl_list]
+>>>>>>> 612b861 (Add optional argument for filename tag exclusions)
         chained = False
         ruleid = 0
         has_crs = False
@@ -818,15 +844,10 @@ class Check():
                         }
                     )
                 # see the exclusion list of files which does not require the filename tag
-                if filenametag not in ["OWASP_CRS/crs-setup.conf", \
-                                       "OWASP_CRS/INITIALIZATION", \
-                                       "OWASP_CRS/BLOCKING-EVALUATION", \
-                                       "OWASP_CRS/COMMON-EXCEPTIONS", \
-                                       "OWASP_CRS/CORRELATION"]:
-                    # check wether the rule is an administrative rule
+                if filenametag not in self.filename_tag_exclusions:
+                    # check if wether the rule is admin rule or not
                     is_admin_rule = True if (ruleid % 1000 < 100) else False
-                    # admin rules do not need filename tags
-
+                    # admin rules does not need filename tags
                     if not is_admin_rule and not has_crs_fname:
                         self.error_no_crstag.append(
                             {
