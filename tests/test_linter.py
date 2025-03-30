@@ -236,10 +236,11 @@ SecRule REQUEST_URI "@rx index.php" \
     deny,\
     t:none,\
     nolog,\
-    tag:OWASP_CRS"
+    tag:OWASP_CRS",\
+    tag:OWASP_CRS/CHECK-TAG"
     """
     p = parse_config(t)
-    c = Check(p)
+    c = Check(p, "REQUEST-900-CHECK-TAG.conf")
     c.check_crs_tag()
 
     assert len(c.error_no_crstag) == 0
