@@ -7,6 +7,7 @@ import msc_pyparser
 import difflib
 import argparse
 import re
+import os.path
 from dulwich.contrib.release_robot import get_current_version, get_recent_tags
 from semver import Version
 
@@ -136,7 +137,7 @@ def check_indentation(filename, content):
     try:
         with open(filename, "r") as fp:
             from_lines = fp.readlines()
-            if filename.startswith("crs-setup.conf.example"):
+            if os.path.basename(filename).startswith("crs-setup.conf.example"):
                 from_lines = remove_comments("".join(from_lines)).split("\n")
                 from_lines = [l + "\n" for l in from_lines]
     except:
