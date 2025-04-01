@@ -825,7 +825,7 @@ class Check():
                                        "OWASP_CRS/CORRELATION"]:
                     # check wether the rule is an administrative rule
                     is_admin_rule = True if (ruleid % 1000 < 100) else False
-                    # admin rules does not need filename tags
+                    # admin rules do not need filename tags
                     if not is_admin_rule and not has_crs_fname:
                         self.error_no_crstag.append(
                             {
