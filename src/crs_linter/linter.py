@@ -818,7 +818,7 @@ class Check():
                         }
                     )
                 # see the exclusion list of files which does not require the filename tag
-                if filenametag not in ["OWASP_CRS/crs-setup.example", \
+                if filenametag not in ["OWASP_CRS/crs-setup.conf", \
                                        "OWASP_CRS/INITIALIZATION", \
                                        "OWASP_CRS/BLOCKING-EVALUATION", \
                                        "OWASP_CRS/COMMON-EXCEPTIONS", \
@@ -826,6 +826,7 @@ class Check():
                     # check wether the rule is an administrative rule
                     is_admin_rule = True if (ruleid % 1000 < 100) else False
                     # admin rules do not need filename tags
+
                     if not is_admin_rule and not has_crs_fname:
                         self.error_no_crstag.append(
                             {
