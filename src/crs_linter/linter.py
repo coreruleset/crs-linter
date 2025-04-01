@@ -823,7 +823,7 @@ class Check():
                                        "OWASP_CRS/BLOCKING-EVALUATION", \
                                        "OWASP_CRS/COMMON-EXCEPTIONS", \
                                        "OWASP_CRS/CORRELATION"]:
-                    # check if wether the rule is admin rule or not
+                    # check wether the rule is an administrative rule
                     is_admin_rule = True if (ruleid % 1000 < 100) else False
                     # admin rules does not need filename tags
                     if not is_admin_rule and not has_crs_fname:
