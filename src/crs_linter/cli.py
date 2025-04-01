@@ -411,7 +411,7 @@ def main():
         else:
             filenametag = c.gen_crs_file_tag()
             logger.error(
-                "There are one or more rules without OWASP_CRS or %s tag" % (filenametag),
+               f"There are one or more rules without OWASP_CRS or {filenametag} tag",
                 file=f,
                 title="'tag:OWASP_CRS' or 'tag:OWASP_CRS/%s' is missing" % (filenametag)
             )
