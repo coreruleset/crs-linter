@@ -413,7 +413,7 @@ def main():
             logger.error(
                f"There are one or more rules without OWASP_CRS or {filenametag} tag",
                 file=f,
-                title="'tag:OWASP_CRS' or 'tag:OWASP_CRS/%s' is missing" % (filenametag)
+                title=f"'tag:OWASP_CRS' or 'tag:OWASP_CRS/{filenametag}' is missing"
             )
 
         ### check for ver action
