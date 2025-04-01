@@ -767,7 +767,7 @@ class Check():
         """
         generate tag from filename
         """
-        filename = self.re_fname.sub("", os.path.basename(self.filename.replace(".conf", "")))
+        filename = self.re_fname.sub("", os.path.basename(os.path.splitext(self.filename)[0]))
         filename = filename.replace("APPLICATION-", "")
         return "/".join(["OWASP_CRS", filename])
 
