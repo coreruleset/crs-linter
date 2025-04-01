@@ -122,10 +122,7 @@ class Check():
         )  # list of rules which uses TX.N without previous 'capture'
         # regex to produce tag from filename:
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
-<<<<<<< HEAD
-=======
         self.filename_tag_exclusions = []
->>>>>>> 612b861 (Add optional argument for filename tag exclusions)
 
     def is_error(self):
         """Returns True if any error is found"""
@@ -767,29 +764,14 @@ class Check():
                                             }
                                         )
 
-<<<<<<< HEAD
-    def gen_crs_file_tag(self):
-        """
-        generate tag from filename
-        """
-        filename = self.re_fname.sub("", os.path.basename(os.path.splitext(self.filename)[0]))
-        filename = filename.replace("APPLICATION-", "")
-        return "/".join(["OWASP_CRS", filename])
-
-    def check_crs_tag(self):
-        """
-        check that every rule has a `tag:'OWASP_CRS'` and `tag:'$FILENAME$'` action
-        """
-        filenametag = self.gen_crs_file_tag()
-=======
     def gen_crs_file_tag(self, fname=None):
         """
         generate tag from filename
         """
         if fname is None:
-            filename = self.re_fname.sub("", os.path.basename(self.filename.replace(".conf", "")))
+            filename = self.re_fname.sub("", os.path.basename(os.path.splitext(self.filename)[0]))
         else:
-            filename = self.re_fname.sub("", os.path.basename(fname.replace(".conf", "")))
+            filename = self.re_fname.sub("", os.path.basename(os.path.splitext(fname)[0]))
         filename = filename.replace("APPLICATION-", "")
         return "/".join(["OWASP_CRS", filename])
 
@@ -801,7 +783,6 @@ class Check():
         if len(self.filename_tag_exclusions) == 0:
             if len(excl_list) > 0:
                 self.filename_tag_exclusions = [self.gen_crs_file_tag(f) for f in excl_list]
->>>>>>> 612b861 (Add optional argument for filename tag exclusions)
         chained = False
         ruleid = 0
         has_crs = False
@@ -845,9 +826,9 @@ class Check():
                     )
                 # see the exclusion list of files which does not require the filename tag
                 if filenametag not in self.filename_tag_exclusions:
-                # check if wether the rule is admin rule or not
+                    # check wether the rule is an administrative rule
                     is_admin_rule = True if (ruleid % 1000 < 100) else False
-                    # admin rules does not need filename tags
+                    # admin rules do not need filename tags
                     if not is_admin_rule and not has_crs_fname:
                         self.error_no_crstag.append(
                             {
