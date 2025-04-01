@@ -409,10 +409,11 @@ def main():
         if len(c.error_no_crstag) == 0:
             logger.debug("No rule without OWASP_CRS tag.")
         else:
+            filenametag = c.gen_crs_file_tag()
             logger.error(
-                "There are one or more rules without OWASP_CRS tag",
+               f"There are one or more rules without OWASP_CRS or {filenametag} tag",
                 file=f,
-                title="tag:OWASP_CRS is missing",
+                title=f"'tag:OWASP_CRS' or 'tag:OWASP_CRS/{filenametag}' is missing"
             )
 
         ### check for ver action
