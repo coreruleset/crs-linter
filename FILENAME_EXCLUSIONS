@@ -1,4 +1,4 @@
-crs-setup.example
+crs-setup.conf.example
 REQUEST-901-INITIALIZATION.conf
 REQUEST-905-COMMON-EXCEPTIONS.conf
 REQUEST-949-BLOCKING-EVALUATION.conf
