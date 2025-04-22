@@ -15,7 +15,7 @@ pip3 install crs-linter
 
 ## How does it work
 
-The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will get some similar output:
+The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will see output similar to the following:
 
 ```bash
 usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [-f FILENAME_TAGS_EXCLUSIONS]
