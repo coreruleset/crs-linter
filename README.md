@@ -25,7 +25,7 @@ crs-linter: error: the following arguments are required: -d/--directory, -r/--ru
 #### Arguments overview
 
 * `-h` - shows usage information and exits
-* `-o` - output format, van be `native` (default) or `github`; Note, that `github` format follows [GH](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message) suggestion
+* `-o` - output format, either `native` (default) or `github`. Note, that `github` format follows the suggestions from the [GitHub docs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message)
 * `-d` - directory path to CRS git repository. This is required if you don't add the version.
 * `--debug` - show debug information
 * `-r` - CRS rules file to check, can be used multiple times, eg `-r ../path/to/crs-setup.conf -r "../path/to/rules/*.conf"`
