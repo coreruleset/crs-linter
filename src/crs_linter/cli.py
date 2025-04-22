@@ -137,7 +137,7 @@ def check_indentation(filename, content):
     try:
         with open(filename, "r") as fp:
             from_lines = fp.readlines()
-            if os.path.basename(filename).startswith("crs-setup.conf.example"):
+            if os.path.basename(filename) == "crs-setup.conf.example":
                 from_lines = remove_comments("".join(from_lines)).split("\n")
                 from_lines = [l + "\n" for l in from_lines]
     except:
