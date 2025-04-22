@@ -18,7 +18,7 @@ pip3 install crs-linter
 The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will get some similar output:
 
 ```bash
-usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION]
+usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [-f FILENAME_TAGS_EXCLUSIONS]
 crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
 ```
 
@@ -77,16 +77,16 @@ If script finds any parser error, it stops immediately. In case of other error, 
 
 If everything is fine, rule returns with 0.
 
-Normally, you should run the script:
+Normally, you should run the script (from `coreruleset` directory):
 
 ```
-crs-linter -r crs-setup.conf.example -r rules/*.conf
+../crs-linter/src/crs_linter/cli.py --debug -r crs-setup.conf.example -r 'rules/*.conf' -t util/APPROVED_TAGS -f ../crs-linter/FILENAME_EXCLUSIONS -v "4.13.0-dev"
 ```
 
 Optionally, you can add the option `--output=github` (default value is `native`):
 
 ```
-crs-linter --output=github -r crs-setup.conf.example -r rules/*.conf
+../crs-linter/src/crs_linter/cli.py --debug --output=github -r crs-setup.conf.example -r 'rules/*.conf' -t util/APPROVED_TAGS -f ../crs-linter/FILENAME_EXCLUSIONS -v "4.13.0-dev"
 ```
 
 In this case, each line will have a prefix, which could be `::debug` or `::error`. See [this](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-error-message).
