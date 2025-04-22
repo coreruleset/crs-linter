@@ -289,11 +289,9 @@ def main():
 
     crs_version = get_crs_version(args.directory, args.version)
     tags = get_lines_from_file(args.tagslist)
-    if args.filename_tags_exclusions is None:
-        # if no filename_tags_exclusions is given, set it to empty list
-        # this means that all files are checked
-        filename_tags_exclusions = []
-    else:
+    # Check all files by default
+    filename_tags_exclusions = []
+    if args.filename_tags_exclusions is not None:
         filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
     parsed = read_files(files)
     txvars = {}
