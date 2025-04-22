@@ -91,7 +91,7 @@ Normally, you will run the script (from `coreruleset` directory) like this:
 
 Optionally, you can add the option `--output=github` (default value is `native`):
 
-```
+```bash
 ../crs-linter/src/crs_linter/cli.py \
   --debug \
   --output=github \
