@@ -79,7 +79,7 @@ If everything is fine, rule returns with 0.
 
 Normally, you will run the script (from `coreruleset` directory) like this:
 
-```
+```bash
 ../crs-linter/src/crs_linter/cli.py \
   --debug \
   -r crs-setup.conf.example \
