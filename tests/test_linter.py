@@ -242,7 +242,7 @@ SecRule REQUEST_URI "@rx index.php" \
     p = parse_config(t)
     c = Check(p, filename = "REQUEST-900-CHECK-TAG.conf")
     print(c.filename)
-    c.check_crs_tag()
+    c.check_crs_tag([])
 
     assert len(c.error_no_crstag) == 0
 
@@ -259,7 +259,7 @@ SecRule REQUEST_URI "@rx index.php" \
     """
     p = parse_config(t)
     c = Check(p, filename = "REQUEST-900-CHECK-TAG.conf")
-    c.check_crs_tag()
+    c.check_crs_tag([])
 
     assert len(c.error_no_crstag) == 1
 
@@ -276,7 +276,7 @@ SecRule REQUEST_URI "@rx index.php" \
     """
     p = parse_config(t)
     c = Check(p, filename = "REQUEST-900-CHECK-TAG.conf")
-    c.check_crs_tag()
+    c.check_crs_tag([])
 
     assert len(c.error_no_crstag) == 1
 
@@ -293,7 +293,7 @@ SecRule REQUEST_URI "@rx index.php" \
     """
     p = parse_config(t)
     c = Check(p, filename = "REQUEST-900-CHECK-TAG.conf")
-    c.check_crs_tag()
+    c.check_crs_tag([])
 
     assert len(c.error_no_crstag) == 1
 
