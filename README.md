@@ -60,7 +60,7 @@ Second, the script loops over each of the parsed structures. Each iteration cons
 * **Check rule tags** - only tags listed in `util/APPROVED_TAGS` may be used as tags in rules
     * to use a new tag on a rule, it **must** first be registered in the util/APPROVED_TAGS file
 * **Check t:lowercase and (?i) flag** - No combination of t:lowercase and (?i) should appear in the same rule.
-* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non administrative rules must have a tag with value `OWASP_CRS/$filename$`. You can pass a file with list of exclusions of files which don't need these tags. `crs_linter` directory contains an example, see `FILENAME_EXCLUSIONS`.
+* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non-administrative rule must have a tag with value `OWASP_CRS/$filename$`. You can pass a file with a list of files which should be excluded from this check using the  `-f` flag. See `crs_linter/FILENAME_EXCLUSIONS` for an example of such a file.
 * **Check rule has a `ver` action with correct version** - Every rule must have `ver` action with correct value
     * script accepts `-v` or `--version` argument if you want to pass it manually
     * if no `-v` was given, the script tries to extract the version from result of `git describe --tags`
