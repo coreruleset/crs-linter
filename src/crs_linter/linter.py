@@ -768,10 +768,8 @@ class Check():
         """
         generate tag from filename
         """
-        if fname is None:
-            filename = self.re_fname.sub("", os.path.basename(os.path.splitext(self.filename)[0]))
-        else:
-            filename = self.re_fname.sub("", os.path.basename(os.path.splitext(fname)[0]))
+            filename_for_tag = fname if fname is not None else self.filename
+            filename = self.re_fname.sub("", os.path.basename(os.path.splitext(filename_for_tag)[0]))
         filename = filename.replace("APPLICATION-", "")
         return "/".join(["OWASP_CRS", filename])
 
