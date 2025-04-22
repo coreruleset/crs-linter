@@ -80,7 +80,13 @@ If everything is fine, rule returns with 0.
 Normally, you will run the script (from `coreruleset` directory) like this:
 
 ```
-../crs-linter/src/crs_linter/cli.py --debug -r crs-setup.conf.example -r 'rules/*.conf' -t util/APPROVED_TAGS -f ../crs-linter/FILENAME_EXCLUSIONS -v "4.13.0-dev"
+../crs-linter/src/crs_linter/cli.py \
+  --debug \
+  -r crs-setup.conf.example \
+  -r 'rules/*.conf' \
+  -t util/APPROVED_TAGS \
+  -f ../crs-linter/FILENAME_EXCLUSIONS \
+  -v "4.13.0-dev"
 ```
 
 Optionally, you can add the option `--output=github` (default value is `native`):
