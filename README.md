@@ -29,7 +29,7 @@ crs-linter: error: the following arguments are required: -d/--directory, -r/--ru
 * `-d` - directory path to CRS git repository. This is required if you don't add the version.
 * `--debug` - show debug information
 * `-r` - CRS rules file to check, can be used multiple times, eg `-r ../path/to/crs-setup.conf -r "../path/to/rules/*.conf"`
-* `-t` - path to file which contains list of approved tags; only tags allowed at rules which are listed in this file
+* `-t` - path to file which contains the list of approved tags; tags not listed in this file will be considered check failures when found on a rule
 * `-v` - CRS version, optional
 * `-f` - path to the file containing the list of files that do not need to be checked for filename tags, optional
 
