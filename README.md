@@ -92,7 +92,14 @@ Normally, you will run the script (from `coreruleset` directory) like this:
 Optionally, you can add the option `--output=github` (default value is `native`):
 
 ```
-../crs-linter/src/crs_linter/cli.py --debug --output=github -r crs-setup.conf.example -r 'rules/*.conf' -t util/APPROVED_TAGS -f ../crs-linter/FILENAME_EXCLUSIONS -v "4.13.0-dev"
+../crs-linter/src/crs_linter/cli.py \
+  --debug \
+  --output=github \
+  -r crs-setup.conf.example \
+  -r 'rules/*.conf' \
+  -t util/APPROVED_TAGS \
+  -f ../crs-linter/FILENAME_EXCLUSIONS \
+  -v "4.13.0-dev"
 ```
 
 In this case, each line will have a prefix, which could be `::debug` or `::error`. See [this](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-error-message).
