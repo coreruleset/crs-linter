@@ -22,7 +22,7 @@ usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES 
 crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
 ```
 
-#### Arguments review
+#### Arguments overview
 
 * `-h` - gives help
 * `-o` - output format, van be `native` (default) or `github`; Note, that `github` format follows [GH](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message) suggestion
