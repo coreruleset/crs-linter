@@ -46,4 +46,4 @@ jobs:
         run: |
           curl -sSL  https://github.com/coreruleset/coreruleset/archive/refs/tags/v${{ matrix.crs-version }}.tar.gz -o - | \
             tar xzvf - --strip-components=1 --wildcards "*/rules/*" "*/crs-setup.conf.example"
-          uv run crs-linter --debug -o github -d . -r crs-setup.conf.example -r 'rules/*.conf' -t APPROVED_TAGS -v ${{ matrix.crs-version }}
+          uv run crs-linter --debug -o github -d . -r crs-setup.conf.example -r 'rules/*.conf' -t APPROVED_TAGS -f FILENAME_EXCLUSIONS -v ${{ matrix.crs-version }}
