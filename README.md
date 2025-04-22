@@ -30,7 +30,7 @@ crs-linter: error: the following arguments are required: -d/--directory, -r/--ru
 * `--debug` - show debug information
 * `-r` - CRS rules file to check, can be used multiple times, eg `-r ../path/to/crs-setup.conf -r "../path/to/rules/*.conf"`
 * `-t` - path to file which contains the list of approved tags; tags not listed in this file will be considered check failures when found on a rule
-* `-v` - CRS version, optional
+* `-v` - CRS version, optional (the linter will try to be smart and figure the version out by itself, which may fail)
 * `-f` - path to the file containing the list of files that do not need to be checked for filename tags, optional
 
 First, an attempt is made to parse each file specified on the command line. This is a "pre-check", and runs on all files before the other tests.
