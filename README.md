@@ -15,7 +15,23 @@ pip3 install crs-linter
 
 ## How does it work
 
-The script expects an argument at least - this would be a single file or a file list, eg: `/path/to/coreruleset/*.conf`.
+The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will see output similar to the following:
+
+```bash
+usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [-f FILENAME_TAGS_EXCLUSIONS]
+crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
+```
+
+#### Arguments overview
+
+* `-h` - shows usage information and exits
+* `-o` - output format, either `native` (default) or `github`. Note, that `github` format follows the suggestions from the [GitHub docs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message)
+* `-d` - directory path to CRS git repository. This is required if you don't add the version.
+* `--debug` - show debug information
+* `-r` - CRS rules file to check, can be used multiple times, eg `-r ../path/to/crs-setup.conf -r "../path/to/rules/*.conf"`
+* `-t` - path to file which contains the list of approved tags; tags not listed in this file will be considered check failures when found on a rule
+* `-v` - CRS version, optional (the linter will try to be smart and figure the version out by itself, which may fail)
+* `-f` - path to the file containing the list of files that do not need to be checked for filename tags, optional
 
 First, an attempt is made to parse each file specified on the command line. This is a "pre-check", and runs on all files before the other tests.
   * **Parsing check** - try to parse the structure, this is a syntax check
@@ -44,7 +60,7 @@ Second, the script loops over each of the parsed structures. Each iteration cons
 * **Check rule tags** - only tags listed in `util/APPROVED_TAGS` may be used as tags in rules
     * to use a new tag on a rule, it **must** first be registered in the util/APPROVED_TAGS file
 * **Check t:lowercase and (?i) flag** - No combination of t:lowercase and (?i) should appear in the same rule.
-* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`
+* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non-administrative rule must have a tag with value `OWASP_CRS/$filename$`. You can pass a file with a list of files which should be excluded from this check using the  `-f` flag. See `crs_linter/FILENAME_EXCLUSIONS` for an example of such a file.
 * **Check rule has a `ver` action with correct version** - Every rule must have `ver` action with correct value
     * script accepts `-v` or `--version` argument if you want to pass it manually
     * if no `-v` was given, the script tries to extract the version from result of `git describe --tags`
@@ -61,16 +77,29 @@ If script finds any parser error, it stops immediately. In case of other error, 
 
 If everything is fine, rule returns with 0.
 
-Normally, you should run the script:
+Normally, you will run the script (from `coreruleset` directory) like this:
 
-```
-crs-linter -r crs-setup.conf.example -r rules/*.conf
+```bash
+../crs-linter/src/crs_linter/cli.py \
+  --debug \
+  -r crs-setup.conf.example \
+  -r 'rules/*.conf' \
+  -t util/APPROVED_TAGS \
+  -f ../crs-linter/FILENAME_EXCLUSIONS \
+  -v "4.13.0-dev"
 ```
 
 Optionally, you can add the option `--output=github` (default value is `native`):
 
-```
-crs-linter --output=github -r crs-setup.conf.example -r rules/*.conf
+```bash
+../crs-linter/src/crs_linter/cli.py \
+  --debug \
+  --output=github \
+  -r crs-setup.conf.example \
+  -r 'rules/*.conf' \
+  -t util/APPROVED_TAGS \
+  -f ../crs-linter/FILENAME_EXCLUSIONS \
+  -v "4.13.0-dev"
 ```
 
 In this case, each line will have a prefix, which could be `::debug` or `::error`. See [this](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-error-message).
@@ -470,7 +499,7 @@ SecRule REQUEST_URI "@rx index.php" \
     tag:attack-xss"
 ```
 
-Rule 1 does not have `tag:OWASP_CRS`
+Rule 1 does not have `tag:OWASP_CRS` nor `t:OWASP_CRS/test11`
 
 ```
 crs-linter -r examples/test11.conf -t ../APPROVED_TAGS
@@ -489,7 +518,7 @@ examples/test11.conf
  No new tags added.
  No t:lowercase and (?i) flag used.
  There are one or more rules without OWASP_CRS tag.
-  file=examples/test11.conf, line=8, endLine=8, title=tag:OWASP_CRS is missing: rule does not have tag with value 'OWASP_CRS'; rule id: 1
+  file=examples/test11.conf, line=8, endLine=8, title=tag:OWASP_CRS is missing: rule does not have tag with value 'OWASP_CRS' nor 'OWASP_CRS/test11'; rule id: 1
  There are one or more rules without ver action.
   file=examples/test11.conf, line=8, endLine=8, title=ver is missing / incorrect: rule does not have 'ver' action; rule id: 1
 End of checking parsed rules

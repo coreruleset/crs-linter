@@ -5,7 +5,7 @@ import argparse
 import re
 import subprocess
 import logging
-
+import os.path
 
 def parse_config(text):
     try:
@@ -53,7 +53,7 @@ class Check():
         self.ctlsl = [c.lower() for c in self.ctls]
 
         # list the actions in expected order
-        # see wiki: https://github.com/SpiderLabs/owasp-modsecurity-crs/wiki/Order-of-ModSecurity-Actions-in-CRS-rules
+        # see wiki: https://github.com/coreruleset/coreruleset/wiki/Order-of-ModSecurity-Actions-in-CRS-rules
         # note, that these tokens are with lovercase here, but used only for to check the order
         self.ordered_actions = [
             "id",  # 0
@@ -120,6 +120,9 @@ class Check():
         self.error_tx_N_without_capture_action = (
             []
         )  # list of rules which uses TX.N without previous 'capture'
+        # regex to produce tag from filename:
+        self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
+        self.filename_tag_exclusions = []
 
     def is_error(self):
         """Returns True if any error is found"""
@@ -761,13 +764,29 @@ class Check():
                                             }
                                         )
 
-    def check_crs_tag(self):
+    def gen_crs_file_tag(self, fname=None):
         """
-        check that every rule has a `tag:'OWASP_CRS'` action
+        generate tag from filename
         """
+        filename_for_tag = fname if fname is not None else self.filename
+        filename = self.re_fname.sub("", os.path.basename(os.path.splitext(filename_for_tag)[0]))
+        filename = filename.replace("APPLICATION-", "")
+        return "/".join(["OWASP_CRS", filename])
+
+    def check_crs_tag(self, excl_list):
+        """
+        check that every rule has a `tag:'OWASP_CRS'` and `tag:'$FILENAME$'` action
+        """
+        filenametag = self.gen_crs_file_tag()
+        if len(self.filename_tag_exclusions) == 0:
+            if len(excl_list) > 0:
+                self.filename_tag_exclusions = [self.gen_crs_file_tag(f) for f in excl_list]
         chained = False
         ruleid = 0
         has_crs = False
+        has_crs_fname = False
+        tagcnt = 0   # counter to help check
+        crstagnr = 0 # hold the position of OWASP_CRS tag
         for d in self.data:
             if "actions" in d:
                 chainlevel = 0
@@ -775,6 +794,7 @@ class Check():
                 if not chained:
                     ruleid = 0
                     has_crs = False
+                    has_crs_fname = False
                     chainlevel = 0
                 else:
                     chained = False
@@ -785,9 +805,14 @@ class Check():
                         chained = True
                         chainlevel += 1
                     if a["act_name"] == "tag":
+                        tagcnt += 1
                         if chainlevel == 0:
                             if a["act_arg"] == "OWASP_CRS":
                                 has_crs = True
+                                crstagnr = tagcnt
+                            if a['act_arg'] == filenametag:
+                                if crstagnr == 0 or tagcnt == crstagnr + 1:
+                                    has_crs_fname = True
                 if ruleid > 0 and not has_crs:
                     self.error_no_crstag.append(
                         {
@@ -797,6 +822,20 @@ class Check():
                             "message": f"rule does not have tag with value 'OWASP_CRS'; rule id: {ruleid}",
                         }
                     )
+                # see the exclusion list of files which does not require the filename tag
+                if filenametag not in self.filename_tag_exclusions:
+                    # check wether the rule is an administrative rule
+                    is_admin_rule = True if (ruleid % 1000 < 100) else False
+                    # admin rules do not need filename tags
+                    if not is_admin_rule and not has_crs_fname:
+                        self.error_no_crstag.append(
+                            {
+                                "ruleid": ruleid,
+                                "line": a["lineno"],
+                                "endLine": a["lineno"],
+                                "message": f"rule does not have tag with value '{filenametag}'; rule id: {ruleid}",
+                            }
+                        )
 
     def check_ver_action(self, version):
         """
