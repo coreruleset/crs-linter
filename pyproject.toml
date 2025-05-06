@@ -5,7 +5,7 @@ description = "CRS linter"
 authors = [
   {name = "Ervin Hegedus", email = "airween@gmail.com"}
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 readme = "README.md"
 keywords = ["OWASP", "CRS", "linter"]
