@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import glob
 import logging
 import pathlib
@@ -18,7 +19,8 @@ except:
 try:
     from logger import Logger
 except:
-    from crs_linter.logger import Logger
+    from crs_linter.logger import Logger, Output
+
 
 def remove_comments(data):
     """
@@ -168,7 +170,13 @@ def check_indentation(filename, content):
         r = re.match(r"^@@ -(\d+),(\d+) \+\d+,\d+ @@$", d)
         if r:
             line1, line2 = [int(i) for i in r.groups()]
-            logger.error("an indentation error was found", file=filename, title="Indentation error", line=line1, end_line=line1 + line2)
+            logger.error(
+                "an indentation error was found",
+                file=filename,
+                title="Indentation error",
+                line=line1,
+                end_line=line1 + line2,
+            )
 
     return error
 
@@ -215,11 +223,13 @@ def read_files(filenames):
 
     return parsed
 
+
 def _version_in_argv(argv):
-    """" If version was passed as argument, make it not required """
+    """ " If version was passed as argument, make it not required"""
     if "-v" in argv or "--version" in argv:
         return False
     return True
+
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
@@ -229,9 +239,10 @@ def parse_args(argv):
         "-o",
         "--output",
         dest="output",
-        default="native",
+        type=Output,
+        default=Output.NATIVE,
         help="Output format",
-        choices=["native", "github"],
+        choices=[o.value for o in Output],
         required=False,
     )
     parser.add_argument(
@@ -241,7 +252,9 @@ def parse_args(argv):
         default=pathlib.Path("."),
         type=pathlib.Path,
         help="Directory path to CRS git repository. This is required if you don't add the version.",
-        required=_version_in_argv(argv), # this means it is required if you don't pass the version
+        required=_version_in_argv(
+            argv
+        ),  # this means it is required if you don't pass the version
     )
     parser.add_argument(
         "--debug", dest="debug", help="Show debug information.", action="store_true"
@@ -263,7 +276,11 @@ def parse_args(argv):
         required=True,
     )
     parser.add_argument(
-        "-v", "--version", dest="version", help="Check that the passed version string is used correctly.", required=False
+        "-v",
+        "--version",
+        dest="version",
+        help="Check that the passed version string is used correctly.",
+        required=False,
     )
     parser.add_argument(
         "-f",
@@ -422,9 +439,9 @@ def main():
         else:
             filenametag = c.gen_crs_file_tag()
             logger.error(
-               f"There are one or more rules without OWASP_CRS or {filenametag} tag",
+                f"There are one or more rules without OWASP_CRS or {filenametag} tag",
                 file=f,
-                title=f"'tag:OWASP_CRS' or 'tag:OWASP_CRS/{filenametag}' is missing"
+                title=f"'tag:OWASP_CRS' or 'tag:OWASP_CRS/{filenametag}' is missing",
             )
 
         ### check for ver action
@@ -454,6 +471,10 @@ def main():
             retval = 1
 
         logger.end_group()
+        if c.is_error() and logger.output == Output.GITHUB:
+            # Groups hide log entries, so if we find an error we need to tell
+            # users where it is.
+            logger.error("Error found in previous group")
     logger.debug("End of checking parsed rules")
 
     logger.debug("Cumulated report about unused TX variables")
