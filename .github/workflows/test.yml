@@ -17,7 +17,7 @@ jobs:
       fail-fast: true
       matrix:
         # renovate: datasource=github-releases depName=coreruleset/coreruleset
-        crs-version: ['4.15.0']
+        CRS_VERSION: ['4.15.0']
         python-version: ['3.11', '3.12', '3.13']
 
     steps:
@@ -42,8 +42,8 @@ jobs:
         run: |
           uv run pytest -vs
 
-      - name: "Run crs linter tests for ${{ matrix.crs-version }}"
+      - name: "Run crs linter tests for ${{ matrix.CRS_VERSION }}"
         run: |
-          curl -sSL  https://github.com/coreruleset/coreruleset/archive/refs/tags/v${{ matrix.crs-version }}.tar.gz -o - | \
+          curl -sSL  https://github.com/coreruleset/coreruleset/archive/refs/tags/v${{ matrix.CRS_VERSION }}.tar.gz -o - | \
             tar xzvf - --strip-components=1 --wildcards "*/rules/*" "*/crs-setup.conf.example"
-          uv run crs-linter --debug -o github -d . -r crs-setup.conf.example -r 'rules/*.conf' -t APPROVED_TAGS -f FILENAME_EXCLUSIONS -v ${{ matrix.crs-version }}
+          uv run crs-linter --debug -o github -d . -r crs-setup.conf.example -r 'rules/*.conf' -t APPROVED_TAGS -f FILENAME_EXCLUSIONS -v ${{ matrix.CRS_VERSION }}
