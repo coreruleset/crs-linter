@@ -224,10 +224,11 @@ def read_files(filenames):
     return parsed
 
 
-def _version_in_argv(argv):
-    """ " If version was passed as argument, make it not required"""
-    if "-v" in argv or "--version" in argv:
-        return False
+def _arg_in_argv(argv, args):
+    """ " If 'arg' was passed as argument, make it not required"""
+    for a in args:
+        if a in argv:
+            return False
     return True
 
 
@@ -252,8 +253,8 @@ def parse_args(argv):
         default=pathlib.Path("."),
         type=pathlib.Path,
         help="Directory path to CRS git repository. This is required if you don't add the version.",
-        required=_version_in_argv(
-            argv
+        required=_arg_in_argv(
+            argv, ["-v", "--version"]
         ),  # this means it is required if you don't pass the version
     )
     parser.add_argument(
@@ -294,14 +295,16 @@ def parse_args(argv):
         "--test-directory",
         dest="tests",
         help="Path to CRS tests directory",
-        required=True,
+        required=False,
     )
     parser.add_argument(
         "-E",
         "--filename-tests",
         dest="filename_tests_exclusions",
         help="Path to file with excluded rule ids' tests",
-        required=True,
+        required = not _arg_in_argv(
+            argv, ["-T", "--test-directory"]
+        ),
     )
     return parser.parse_args(argv)
 
@@ -326,33 +329,33 @@ def main():
     parsed = read_files(files)
     txvars = {}
 
-    # read existing tests
-    testlist = glob.glob(args.tests)
-    testlist.sort()
-    if len(testlist) == 0:
-        logger.error(f"Can't open files in given path ({args.tests})!")
-        sys.exit(1)
-    # read the exclusion list
-    test_exclusion_list = []
-    try:
-        with open(args.filename_tests_exclusions, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    test_exclusion_list.append(line)
-    except FileNotFoundError:
-        logger.error(f"Exclusion list file '{args.filename_tests_exclusions}' not found. Skipping...")
-        sys.exit(1)
-    test_cases = {}
-    # find the yaml files
-    # collect them in a dictionary and check for test
-    for t in testlist:
-        testlist = glob.glob(t + "/*.yaml")
+    if args.tests is not None:
+        # read existing tests
+        testlist = glob.glob(args.tests)
         testlist.sort()
-        for tc in testlist:
-            tcname = tc.split("/")[-1].split(".")[0]
-            test_cases[int(tcname)] = 1
-
+        if len(testlist) == 0:
+            logger.error(f"Can't open files in given path ({args.tests})!")
+            sys.exit(1)
+        # read the exclusion list
+        test_exclusion_list = []
+        try:
+            with open(args.filename_tests_exclusions, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        test_exclusion_list.append(line)
+        except FileNotFoundError:
+            logger.error(f"Exclusion list file '{args.filename_tests_exclusions}' not found. Skipping...")
+            sys.exit(1)
+        test_cases = {}
+        # find the yaml files
+        # collect them in a dictionary and check for test
+        for t in testlist:
+            testlist = glob.glob(t + "/*.yaml")
+            testlist.sort()
+            for tc in testlist:
+                tcname = tc.split("/")[-1].split(".")[0]
+                test_cases[int(tcname)] = 1
 
     logger.info("Checking parsed rules...")
     for f in parsed.keys():
@@ -507,19 +510,20 @@ def main():
                 title="capture is missing",
             )
 
-        # check rules without test
-        c.error_rule_hasnotest = []
-        c.find_ids_without_tests(test_cases, test_exclusion_list)
-        if len(c.error_rule_hasnotest) == 0:
-            logger.debug("No rule without test.")
-        else:
-            for e in c.error_rule_hasnotest:
-                print(e)
-            logger.error(
-                "There are one or more rules without test.",
-                file=f,
-                title="missing test"
-            )
+        if args.tests is not None:
+            # check rules without test
+            c.error_rule_hasnotest = []
+            c.find_ids_without_tests(test_cases, test_exclusion_list)
+            if len(c.error_rule_hasnotest) == 0:
+                logger.debug("No rule without test.")
+            else:
+                for e in c.error_rule_hasnotest:
+                    print(e)
+                logger.error(
+                    "There are one or more rules without test.",
+                    file=f,
+                    title="missing test"
+                )
 
         # set it once if there is an error
         if c.is_error():
