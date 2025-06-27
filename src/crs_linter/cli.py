@@ -17,7 +17,7 @@ try:
 except:
     from crs_linter.linter import Check
 try:
-    from logger import Logger
+    from logger import Logger, Output
 except:
     from crs_linter.logger import Logger, Output
 
@@ -289,7 +289,20 @@ def parse_args(argv):
         help="Path to file with excluded filename tags",
         required=False,
     )
-
+    parser.add_argument(
+        "-T",
+        "--test-directory",
+        dest="tests",
+        help="Path to CRS tests directory",
+        required=True,
+    )
+    parser.add_argument(
+        "-E",
+        "--filename-tests",
+        dest="filename_tests_exclusions",
+        help="Path to file with excluded rule ids' tests",
+        required=True,
+    )
     return parser.parse_args(argv)
 
 
@@ -312,6 +325,34 @@ def main():
         filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
     parsed = read_files(files)
     txvars = {}
+
+    # read existing tests
+    testlist = glob.glob(args.tests)
+    testlist.sort()
+    if len(testlist) == 0:
+        logger.error(f"Can't open files in given path ({args.tests})!")
+        sys.exit(1)
+    # read the exclusion list
+    test_exclusion_list = []
+    try:
+        with open(args.filename_tests_exclusions, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    test_exclusion_list.append(line)
+    except FileNotFoundError:
+        logger.error(f"Exclusion list file '{args.filename_tests_exclusions}' not found. Skipping...")
+        sys.exit(1)
+    test_cases = {}
+    # find the yaml files
+    # collect them in a dictionary and check for test
+    for t in testlist:
+        testlist = glob.glob(t + "/*.yaml")
+        testlist.sort()
+        for tc in testlist:
+            tcname = tc.split("/")[-1].split(".")[0]
+            test_cases[int(tcname)] = 1
+
 
     logger.info("Checking parsed rules...")
     for f in parsed.keys():
@@ -455,6 +496,7 @@ def main():
                 title="ver is missing / incorrect",
             )
 
+        ### check for capture action
         c.check_capture_action()
         if len(c.error_tx_N_without_capture_action) == 0:
             logger.debug("No rule uses TX.N without capture action.")
@@ -463,6 +505,20 @@ def main():
                 "There are one or more rules using TX.N without capture action.",
                 file=f,
                 title="capture is missing",
+            )
+
+        # check rules without test
+        c.error_rule_hasnotest = []
+        c.find_ids_without_tests(test_cases, test_exclusion_list)
+        if len(c.error_rule_hasnotest) == 0:
+            logger.debug("No rule without test.")
+        else:
+            for e in c.error_rule_hasnotest:
+                print(e)
+            logger.error(
+                "There are one or more rules without test.",
+                file=f,
+                title="missing test"
             )
 
         # set it once if there is an error
