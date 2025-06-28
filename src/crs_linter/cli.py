@@ -14,11 +14,11 @@ from semver import Version
 
 try:
     from linter import Check
-except:
+except ImportError:
     from crs_linter.linter import Check
 try:
     from logger import Logger, Output
-except:
+except ImportError:
     from crs_linter.logger import Logger, Output
 
 
@@ -115,8 +115,8 @@ def get_lines_from_file(filename):
                     continue
                 if len(l) > 0:
                     lines.append(l)
-    except:
-        logger.error(f"Can't open tags list: {filename}")
+    except FileNotFoundError:
+        logger.error(f"Can't open file: {filename}")
         sys.exit(1)
 
     return lines
@@ -146,7 +146,7 @@ def check_indentation(filename, content):
             if os.path.basename(filename) == "crs-setup.conf.example":
                 from_lines = remove_comments("".join(from_lines)).split("\n")
                 from_lines = [l + "\n" for l in from_lines]
-    except:
+    except FileNotFoundError:
         logger.error(f"Can't open file for indentation check: {filename}")
         error = True
 
@@ -199,7 +199,7 @@ def read_files(filenames):
                 # modify the content of the file, if it is the "crs-setup.conf.example"
                 if f.startswith("crs-setup.conf.example"):
                     data = remove_comments(data)
-        except:
+        except FileNotFoundError:
             logger.error(f"Can't open file: {f}")
             sys.exit(1)
 
@@ -316,6 +316,7 @@ def parse_args(argv):
 def main():
     global logger
     retval = 0
+    cwd = pathlib.Path.cwd()
     args = parse_args(sys.argv[1:])
 
     files = []
@@ -323,6 +324,7 @@ def main():
         files.extend(glob.glob(r))
 
     logger = Logger(output=args.output, debug=args.debug)
+    logger.debug(f"Current working directory: {cwd}")
 
     crs_version = get_crs_version(args.directory, args.version)
     tags = get_lines_from_file(args.tagslist)
@@ -335,6 +337,9 @@ def main():
 
     if args.tests is not None:
         # read existing tests
+        if not args.tests.startswith("/"):
+            # if the path is relative, prepend the current working directory
+            args.tests = os.path.join(cwd, args.tests)
         testlist = glob.glob(f"{args.tests}/**/*.y[a]ml")
         testlist.sort()
         if len(testlist) == 0:
@@ -391,7 +396,6 @@ def main():
         if len(c.error_wrong_ctl_auditlogparts) == 0:
             logger.debug("no 'ctl:auditLogParts' action found.")
         else:
-            logger.error()
             for a in c.error_wrong_ctl_auditlogparts:
                 logger.error(
                     "Found 'ctl:auditLogParts' action",
@@ -532,8 +536,8 @@ def main():
     logger.debug("Cumulated report about unused TX variables")
     has_unused = False
     for tk in txvars:
-        if txvars[tk]["used"] == False:
-            if has_unused == False:
+        if not txvars[tk]["used"]:
+            if not has_unused:
                 logger.debug("Unused TX variable(s):")
             a = txvars[tk]
             logger.error(
