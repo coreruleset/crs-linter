@@ -106,11 +106,15 @@ def generate_version_string(directory):
 
 
 def get_lines_from_file(filename):
+    lines = []
     try:
         with open(filename, "r") as fp:
-            lines = [l.strip() for l in fp.readlines()]
-            # remove empty items, if any
-            lines = [l for l in lines if len(l) > 0]
+            for l in fp.readlines():
+                l = l.strip()
+                if l.startswith("#"):
+                    continue
+                if len(l) > 0:
+                    lines.append(l)
     except:
         logger.error(f"Can't open tags list: {filename}")
         sys.exit(1)
@@ -331,31 +335,19 @@ def main():
 
     if args.tests is not None:
         # read existing tests
-        testlist = glob.glob(args.tests)
+        testlist = glob.glob(f"{args.tests}/**/*.y[a]ml")
         testlist.sort()
         if len(testlist) == 0:
             logger.error(f"Can't open files in given path ({args.tests})!")
             sys.exit(1)
         # read the exclusion list
-        test_exclusion_list = []
-        try:
-            with open(args.filename_tests_exclusions, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        test_exclusion_list.append(line)
-        except FileNotFoundError:
-            logger.error(f"Exclusion list file '{args.filename_tests_exclusions}' not found. Skipping...")
-            sys.exit(1)
+        test_exclusion_list = get_lines_from_file(args.filename_tests_exclusions)
         test_cases = {}
         # find the yaml files
         # collect them in a dictionary and check for test
-        for t in testlist:
-            testlist = glob.glob(t + "/*.yaml")
-            testlist.sort()
-            for tc in testlist:
-                tcname = tc.split("/")[-1].split(".")[0]
-                test_cases[int(tcname)] = 1
+        for tc in testlist:
+            tcname = os.path.basename(tc).split(".")[0]
+            test_cases[int(tcname)] = 1
 
     logger.info("Checking parsed rules...")
     for f in parsed.keys():
@@ -515,14 +507,14 @@ def main():
             c.error_rule_hasnotest = []
             c.find_ids_without_tests(test_cases, test_exclusion_list)
             if len(c.error_rule_hasnotest) == 0:
-                logger.debug("No rule without test.")
+                logger.debug("All rules have tests.")
             else:
                 for e in c.error_rule_hasnotest:
                     print(e)
                 logger.error(
-                    "There are one or more rules without test.",
+                    "There are one or more rules without tests.",
                     file=f,
-                    title="missing test"
+                    title="no tests"
                 )
 
         # set it once if there is an error
