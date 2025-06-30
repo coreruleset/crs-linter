@@ -17,7 +17,7 @@ jobs:
       fail-fast: true
       matrix:
         # renovate: datasource=github-releases depName=coreruleset/coreruleset
-        CRS_VERSION: ['4.15.0']
+        CRS_VERSION: v4.16.0
         python-version: ['3.11', '3.12', '3.13']
 
     steps:
