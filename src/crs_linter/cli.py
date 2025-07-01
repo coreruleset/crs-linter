@@ -168,7 +168,6 @@ def check_indentation(filename, content):
     else:
         logger.debug("Indentation check found error(s)")
         error = True
-
     for d in diff:
         d = d.strip("\n")
         r = re.match(r"^@@ -(\d+),(\d+) \+\d+,\d+ @@$", d)
@@ -197,7 +196,7 @@ def read_files(filenames):
             with open(f, "r") as file:
                 data = file.read()
                 # modify the content of the file, if it is the "crs-setup.conf.example"
-                if f.startswith("crs-setup.conf.example"):
+                if os.path.basename(f).startswith("crs-setup.conf.example"):
                     data = remove_comments(data)
         except FileNotFoundError:
             logger.error(f"Can't open file: {f}")
@@ -520,6 +519,7 @@ def main():
                     file=f,
                     title="no tests"
                 )
+                retval = 1
 
         # set it once if there is an error
         if c.is_error():
