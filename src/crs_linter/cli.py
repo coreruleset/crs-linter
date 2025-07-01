@@ -305,7 +305,7 @@ def parse_args(argv):
         "-E",
         "--filename-tests",
         dest="filename_tests_exclusions",
-        help="Path to file with excluded rule ids' tests",
+        help="Path to file with exclusions. Exclusions are either full rule IDs or rule ID prefixes (e.g., 932), one entry per line. Lines beginning with `#` are considered comments.",
         required = not _arg_in_argv(
             argv, ["-T", "--test-directory"]
         ),
