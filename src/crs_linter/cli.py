@@ -337,10 +337,10 @@ def main():
 
     if args.tests is not None:
         # read existing tests
-        if not args.tests.startswith("/"):
+        if not os.path.isabs(args.tests):
             # if the path is relative, prepend the current working directory
             args.tests = os.path.join(cwd, args.tests)
-        testlist = glob.glob(f"{args.tests}/**/*.y[a]ml")
+        testlist = glob.glob(os.path.join(f"{args.tests}", "**", "*.y[a]ml"))
         testlist.sort()
         if len(testlist) == 0:
             logger.error(f"Can't open files in given path ({args.tests})!")
