@@ -979,6 +979,7 @@ class Check():
                             # also skip these hardcoded rules
                             need_check = True
                             for excl in exclusion_list:
+                                # exclude full rule IDs or rule ID prefixes
                                 if srid[:len(excl)] == excl:
                                     need_check = False
                             if need_check:
