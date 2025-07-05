@@ -120,6 +120,9 @@ class Check():
         self.error_tx_N_without_capture_action = (
             []
         )  # list of rules which uses TX.N without previous 'capture'
+        self.error_rule_hasnotest  = (
+            []
+        )  # list of rules which don't have any tests
         # regex to produce tag from filename:
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
         self.filename_tag_exclusions = []
@@ -955,3 +958,38 @@ class Check():
                         captured_var_chain_level = 0
                         use_captured_var = False
                         ruleid = 0
+
+    def find_ids_without_tests(self, test_cases, exclusion_list):
+        """
+            s: the parsed structure
+            test_cases: all available test cases
+            exclusion_list_name: file which contains rule id's without tests
+        """
+        rids = {}
+        for i in self.data:
+            # only SecRule counts
+            if i['type'] == "SecRule":
+                for a in i['actions']:
+                    # find the `id` action
+                    if a['act_name'] == "id":
+                        # get the argument of the action
+                        rid = int(a['act_arg']) # int
+                        srid = a['act_arg']     # string
+                        if (rid%1000) >= 100:   # skip the PL control rules
+                            # also skip these hardcoded rules
+                            need_check = True
+                            for excl in exclusion_list:
+                                # exclude full rule IDs or rule ID prefixes
+                                if srid[:len(excl)] == excl:
+                                    need_check = False
+                            if need_check:
+                                # if there is no test cases, just print it
+                                if rid not in test_cases:
+                                    rids[rid] = a['lineno']
+                                    self.error_rule_hasnotest.append({
+                                        'ruleid' : rid,
+                                        'line'   : a['lineno'],
+                                        'endLine': a['lineno'],
+                                        'message': f"rule does not have any tests; rule id: {rid}'"
+                                    })
+        return True

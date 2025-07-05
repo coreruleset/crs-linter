@@ -14,11 +14,11 @@ from semver import Version
 
 try:
     from linter import Check
-except:
+except ImportError:
     from crs_linter.linter import Check
 try:
-    from logger import Logger
-except:
+    from logger import Logger, Output
+except ImportError:
     from crs_linter.logger import Logger, Output
 
 
@@ -106,13 +106,17 @@ def generate_version_string(directory):
 
 
 def get_lines_from_file(filename):
+    lines = []
     try:
         with open(filename, "r") as fp:
-            lines = [l.strip() for l in fp.readlines()]
-            # remove empty items, if any
-            lines = [l for l in lines if len(l) > 0]
-    except:
-        logger.error(f"Can't open tags list: {filename}")
+            for l in fp.readlines():
+                l = l.strip()
+                if l.startswith("#"):
+                    continue
+                if len(l) > 0:
+                    lines.append(l)
+    except FileNotFoundError:
+        logger.error(f"Can't open file: {filename}")
         sys.exit(1)
 
     return lines
@@ -142,7 +146,7 @@ def check_indentation(filename, content):
             if os.path.basename(filename) == "crs-setup.conf.example":
                 from_lines = remove_comments("".join(from_lines)).split("\n")
                 from_lines = [l + "\n" for l in from_lines]
-    except:
+    except FileNotFoundError:
         logger.error(f"Can't open file for indentation check: {filename}")
         error = True
 
@@ -164,7 +168,6 @@ def check_indentation(filename, content):
     else:
         logger.debug("Indentation check found error(s)")
         error = True
-
     for d in diff:
         d = d.strip("\n")
         r = re.match(r"^@@ -(\d+),(\d+) \+\d+,\d+ @@$", d)
@@ -193,9 +196,9 @@ def read_files(filenames):
             with open(f, "r") as file:
                 data = file.read()
                 # modify the content of the file, if it is the "crs-setup.conf.example"
-                if f.startswith("crs-setup.conf.example"):
+                if os.path.basename(f).startswith("crs-setup.conf.example"):
                     data = remove_comments(data)
-        except:
+        except FileNotFoundError:
             logger.error(f"Can't open file: {f}")
             sys.exit(1)
 
@@ -224,10 +227,11 @@ def read_files(filenames):
     return parsed
 
 
-def _version_in_argv(argv):
-    """ " If version was passed as argument, make it not required"""
-    if "-v" in argv or "--version" in argv:
-        return False
+def _arg_in_argv(argv, args):
+    """ " If 'arg' was passed as argument, make it not required"""
+    for a in args:
+        if a in argv:
+            return False
     return True
 
 
@@ -252,8 +256,8 @@ def parse_args(argv):
         default=pathlib.Path("."),
         type=pathlib.Path,
         help="Directory path to CRS git repository. This is required if you don't add the version.",
-        required=_version_in_argv(
-            argv
+        required=_arg_in_argv(
+            argv, ["-v", "--version"]
         ),  # this means it is required if you don't pass the version
     )
     parser.add_argument(
@@ -289,13 +293,29 @@ def parse_args(argv):
         help="Path to file with excluded filename tags",
         required=False,
     )
-
+    parser.add_argument(
+        "-T",
+        "--test-directory",
+        dest="tests",
+        help="Path to CRS tests directory",
+        required=False,
+    )
+    parser.add_argument(
+        "-E",
+        "--filename-tests",
+        dest="filename_tests_exclusions",
+        help="Path to file with exclusions. Exclusions are either full rule IDs or rule ID prefixes (e.g., 932), one entry per line. Lines beginning with `#` are considered comments.",
+        required = not _arg_in_argv(
+            argv, ["-T", "--test-directory"]
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main():
     global logger
     retval = 0
+    cwd = pathlib.Path.cwd()
     args = parse_args(sys.argv[1:])
 
     files = []
@@ -303,6 +323,7 @@ def main():
         files.extend(glob.glob(r))
 
     logger = Logger(output=args.output, debug=args.debug)
+    logger.debug(f"Current working directory: {cwd}")
 
     crs_version = get_crs_version(args.directory, args.version)
     tags = get_lines_from_file(args.tagslist)
@@ -312,6 +333,25 @@ def main():
         filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
     parsed = read_files(files)
     txvars = {}
+
+    if args.tests is not None:
+        # read existing tests
+        if not os.path.isabs(args.tests):
+            # if the path is relative, prepend the current working directory
+            args.tests = os.path.join(cwd, args.tests)
+        testlist = glob.glob(os.path.join(f"{args.tests}", "**", "*.y[a]ml"))
+        testlist.sort()
+        if len(testlist) == 0:
+            logger.error(f"Can't open files in given path ({args.tests})!")
+            sys.exit(1)
+        # read the exclusion list
+        test_exclusion_list = get_lines_from_file(args.filename_tests_exclusions)
+        test_cases = {}
+        # find the yaml files
+        # collect them in a dictionary and check for test
+        for tc in testlist:
+            tcname = os.path.basename(tc).split(".")[0]
+            test_cases[int(tcname)] = 1
 
     logger.info("Checking parsed rules...")
     for f in parsed.keys():
@@ -355,7 +395,6 @@ def main():
         if len(c.error_wrong_ctl_auditlogparts) == 0:
             logger.debug("no 'ctl:auditLogParts' action found.")
         else:
-            logger.error()
             for a in c.error_wrong_ctl_auditlogparts:
                 logger.error(
                     "Found 'ctl:auditLogParts' action",
@@ -455,6 +494,7 @@ def main():
                 title="ver is missing / incorrect",
             )
 
+        ### check for capture action
         c.check_capture_action()
         if len(c.error_tx_N_without_capture_action) == 0:
             logger.debug("No rule uses TX.N without capture action.")
@@ -464,6 +504,22 @@ def main():
                 file=f,
                 title="capture is missing",
             )
+
+        if args.tests is not None:
+            # check rules without test
+            c.error_rule_hasnotest = []
+            c.find_ids_without_tests(test_cases, test_exclusion_list)
+            if len(c.error_rule_hasnotest) == 0:
+                logger.debug("All rules have tests.")
+            else:
+                for e in c.error_rule_hasnotest:
+                    print(e)
+                logger.error(
+                    "There are one or more rules without tests.",
+                    file=f,
+                    title="no tests"
+                )
+                retval = 1
 
         # set it once if there is an error
         if c.is_error():
@@ -480,8 +536,8 @@ def main():
     logger.debug("Cumulated report about unused TX variables")
     has_unused = False
     for tk in txvars:
-        if txvars[tk]["used"] == False:
-            if has_unused == False:
+        if not txvars[tk]["used"]:
+            if not has_unused:
                 logger.debug("Unused TX variable(s):")
             a = txvars[tk]
             logger.error(
