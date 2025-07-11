@@ -45,5 +45,5 @@ jobs:
       - name: "Run crs linter tests for ${{ matrix.CRS_VERSION }}"
         run: |
           curl -sSL  https://github.com/coreruleset/coreruleset/archive/refs/tags/v${{ matrix.CRS_VERSION }}.tar.gz -o - | \
-            tar xzvf - --strip-components=1 --wildcards "*/rules/*" "*/tests/*" "*/crs-setup.conf.example"
+            tar xzvf - --strip-components=1 --wildcards "*/rules/*" "*/tests/*" "*/crs-setup.conf.example" "*/utils/*"
           uv run crs-linter --debug -o github -d . -r crs-setup.conf.example -r 'rules/*.conf' -t utils/APPROVED_TAGS -f utils/FILENAME_EXCLUSIONS -v ${{ matrix.CRS_VERSION }} -T 'tests/regression/tests/' -E utils/TESTS_EXCLUSIONS
