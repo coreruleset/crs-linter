@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import glob
-import logging
 import pathlib
 import sys
 import msc_pyparser
@@ -9,7 +8,9 @@ import difflib
 import argparse
 import re
 import os.path
-from dulwich.contrib.release_robot import get_current_version, get_recent_tags
+from dulwich.contrib.release_robot import get_current_version
+from dulwich.repo import Repo
+from dulwich.objects import Commit
 from semver import Version
 
 try:
@@ -84,10 +85,54 @@ def remove_comments(data):
     return data
 
 
-def generate_version_string(directory):
+def parse_version_from_commit_message(directory, head_ref):
+    logger.info("Checking for release commit message ('...release vx.y.z')...)")
+    if head_ref == "" or head_ref is None:
+        return None
+
+    logger.info(f"Found base ref {head_ref}")
+    repo = Repo.discover(directory)
+    refs = repo.get_refs()
+    ref_path = head_ref
+    if not ref_path.startswith("refs/heads/"):
+        ref_path = "refs/heads/" + head_ref
+    try:
+        head_ref_sha = refs[bytes(ref_path, "utf-8")]
+    except KeyError:
+        raise ValueError(f"Failed to find head ref '{head_ref}")
+
+    head_ref_commit = repo.get_object(head_ref_sha)
+    message_pattern = re.compile(r"release\s+(v\d+\.\d+\.\d+)", re.IGNORECASE)
+    match = message_pattern.search(str(head_ref_commit.message))
+    if match is not None:
+        version = match.group(1)
+        logger.info(f"Detected version from commit message: {version}")
+        return version
+    else:
+        logger.info("Commit message doesn't appear to be for a release")
+
+    return None
+
+
+def parse_version_from_branch_name(head_ref):
+    if head_ref == "" or head_ref is None:
+        return None
+    logger.info("Checking for version information in branch name ('release/vx.y.z')...")
+    branch_pattern = re.compile(r"release/(v\d+\.\d+\.\d+)")
+    match = branch_pattern.search(head_ref)
+    if match is not None:
+        version = match.group(1)
+        logger.info(f"Detected version from branch name: {version}")
+        return version
+    else:
+        logger.info(f"Branch name doesn't match release branch pattern: '{head_ref}'")
+
+    return None
+
+
+def generate_version_string(directory, head_ref):
     """
-    generate version string from git tag
-    program calls "git describe --tags" and converts it to version
+    generate version string from target branch (in case of a PR), commit message, or git tag.
     eg:
       v4.5.0-6-g872a90ab -> "4.6.0-dev"
       v4.5.0-0-abcd01234 -> "4.5.0"
@@ -95,12 +140,24 @@ def generate_version_string(directory):
     if not directory.is_dir():
         raise ValueError(f"Directory {directory} does not exist")
 
-    current_version = get_current_version(projdir=str(directory.resolve()))
+    # First, check the commit message. This might be a release.
+    current_version = parse_version_from_commit_message(directory.resolve(), head_ref)
+    # Second, see if the branch name has the version information
     if current_version is None:
-        raise ValueError(f"Can't get current version from {directory}")
+        current_version = parse_version_from_branch_name(head_ref)
+    # Finally, fall back to looking at the last tag.
+    if current_version is None:
+        logger.info("Looking up last tag to determine version...")
+        current_version = get_current_version(projdir=str(directory.resolve()))
+        if current_version is None:
+            raise ValueError(f"Can't get current version from {directory}")
+        logger.info(f"Found last tag {current_version}")
+    if current_version.startswith("v"):
+        current_version = current_version.replace("v", "")
     parsed_version = Version.parse(current_version)
     next_minor = parsed_version.bump_minor()
     version = next_minor.replace(prerelease="dev")
+    logger.info(f"Required version for check: {version}")
 
     return f"OWASP_CRS/{version}"
 
@@ -122,11 +179,11 @@ def get_lines_from_file(filename):
     return lines
 
 
-def get_crs_version(directory, version=None):
+def get_crs_version(directory, version=None, head_ref=None):
     crs_version = ""
     if version is None:
         # if no --version/-v was given, get version from git describe --tags output
-        crs_version = generate_version_string(directory)
+        crs_version = generate_version_string(directory, head_ref)
     else:
         crs_version = version.strip()
     # if no "OWASP_CRS/"prefix, prepend it
@@ -284,6 +341,11 @@ def parse_args(argv):
         "--version",
         dest="version",
         help="Check that the passed version string is used correctly.",
+    )
+    parser.add_argument(
+        "--head-ref",
+        dest="head_ref",
+        help="Pass head ref from CI pipeline",
         required=False,
     )
     parser.add_argument(
@@ -305,9 +367,7 @@ def parse_args(argv):
         "--filename-tests",
         dest="filename_tests_exclusions",
         help="Path to file with exclusions. Exclusions are either full rule IDs or rule ID prefixes (e.g., 932), one entry per line. Lines beginning with `#` are considered comments.",
-        required = not _arg_in_argv(
-            argv, ["-T", "--test-directory"]
-        ),
+        required=not _arg_in_argv(argv, ["-T", "--test-directory"]),
     )
     return parser.parse_args(argv)
 
@@ -325,7 +385,9 @@ def main():
     logger = Logger(output=args.output, debug=args.debug)
     logger.debug(f"Current working directory: {cwd}")
 
-    crs_version = get_crs_version(args.directory, args.version)
+    crs_version = get_crs_version(
+        args.directory, args.version, args.head_ref if "head_ref" in args else None
+    )
     tags = get_lines_from_file(args.tagslist)
     # Check all files by default
     filename_tags_exclusions = []
@@ -517,7 +579,7 @@ def main():
                 logger.error(
                     "There are one or more rules without tests.",
                     file=f,
-                    title="no tests"
+                    title="no tests",
                 )
                 retval = 1
 
