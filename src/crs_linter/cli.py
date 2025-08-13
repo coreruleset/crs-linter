@@ -345,7 +345,7 @@ def parse_args(argv):
     parser.add_argument(
         "--head-ref",
         dest="head_ref",
-        help="Pass head ref from CI pipeline",
+        help="Pass head ref from CI pipeline in order to determine the version to check against",
         required=False,
     )
     parser.add_argument(
