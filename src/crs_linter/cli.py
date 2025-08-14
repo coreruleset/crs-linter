@@ -10,7 +10,6 @@ import re
 import os.path
 from dulwich.contrib.release_robot import get_current_version
 from dulwich.repo import Repo
-from dulwich.objects import Commit
 from semver import Version
 
 try:
@@ -102,8 +101,10 @@ def parse_version_from_commit_message(directory, head_ref):
         raise ValueError(f"Failed to find head ref '{head_ref}")
 
     head_ref_commit = repo.get_object(head_ref_sha)
-    message_pattern = re.compile(r"release\s+(v\d+\.\d+\.\d+)", re.IGNORECASE)
-    match = message_pattern.search(str(head_ref_commit.message))
+    message_pattern = re.compile(
+        r"(?<!post).*release\s+(v\d+\.\d+\.\d+)(?:$|\s(?:.|\n)*)", re.IGNORECASE
+    )
+    match = message_pattern.search(str(head_ref_commit.message, "utf-8"))
     if match is not None:
         version = match.group(1)
         logger.info(f"Detected version from commit message: {version}")
