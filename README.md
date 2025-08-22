@@ -18,8 +18,8 @@ pip3 install crs-linter
 The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will see output similar to the following:
 
 ```bash
-usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [--head-ref HEAD_REF] [-f FILENAME_TAGS_EXCLUSIONS] [-T TESTS]
-                  [-E FILENAME_TESTS_EXCLUSIONS]
+usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [--head-ref HEAD_REF] [--commit-message COMMIT_MESSAGE]
+                  [-f FILENAME_TAGS_EXCLUSIONS] [-T TESTS] [-E FILENAME_TESTS_EXCLUSIONS]
 crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
 ```
 
@@ -34,6 +34,7 @@ crs-linter: error: the following arguments are required: -d/--directory, -r/--ru
 * `-v` - CRS version, optional (the linter will try to be smart and figure the version out by itself, which may fail)
 * `-f` - path to the file containing the list of files that do not need to be checked for filename tags, optional
 * `--head-ref` - Pass head ref from CI pipeline in order to determine the version to check against, optional
+* `--commit-message` - Pass PR commit message from CI pipeline in order to determine the version to check against (for release commits)
 
 First, an attempt is made to parse each file specified on the command line. This is a "pre-check", and runs on all files before the other tests.
   * **Parsing check** - try to parse the structure, this is a syntax check
