@@ -54,3 +54,5 @@ class Logger:
     def info(self, *args, **kwargs):
         if self.output == Output.NATIVE:
             self.logger.info(*args, **kwargs)
+        else:
+            self.logger.notice(*args, **kwargs)

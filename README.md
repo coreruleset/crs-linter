@@ -18,7 +18,8 @@ pip3 install crs-linter
 The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will see output similar to the following:
 
 ```bash
-usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [-f FILENAME_TAGS_EXCLUSIONS]
+usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [--head-ref HEAD_REF] [--commit-message COMMIT_MESSAGE]
+                  [-f FILENAME_TAGS_EXCLUSIONS] [-T TESTS] [-E FILENAME_TESTS_EXCLUSIONS]
 crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
 ```
 
@@ -32,6 +33,8 @@ crs-linter: error: the following arguments are required: -d/--directory, -r/--ru
 * `-t` - path to file which contains the list of approved tags; tags not listed in this file will be considered check failures when found on a rule
 * `-v` - CRS version, optional (the linter will try to be smart and figure the version out by itself, which may fail)
 * `-f` - path to the file containing the list of files that do not need to be checked for filename tags, optional
+* `--head-ref` - Pass head ref from CI pipeline in order to determine the version to check against, optional
+* `--commit-message` - Pass PR commit message from CI pipeline in order to determine the version to check against (for release commits)
 
 First, an attempt is made to parse each file specified on the command line. This is a "pre-check", and runs on all files before the other tests.
   * **Parsing check** - try to parse the structure, this is a syntax check
@@ -63,7 +66,7 @@ Second, the script loops over each of the parsed structures. Each iteration cons
 * **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non-administrative rule must have a tag with value `OWASP_CRS/$filename$`. You can pass a file with a list of files which should be excluded from this check using the  `-f` flag. See `crs_linter/FILENAME_EXCLUSIONS` for an example of such a file.
 * **Check rule has a `ver` action with correct version** - Every rule must have `ver` action with correct value
     * script accepts `-v` or `--version` argument if you want to pass it manually
-    * if no `-v` was given, the script tries to extract the version from result of `git describe --tags`
+    * if no `-v` was given, the script tries to extract the version from result of `git describe --tags` (see `--head-ref`)
 * **Check if the rule uses any `TX:N` target in a chained rule then there must be a `capture` action** - Consider the rule is a chained rule and not the first rule uses the `TX:1` target
     * this means we want to check the previously rule's result
     * which is produced by `capture`
