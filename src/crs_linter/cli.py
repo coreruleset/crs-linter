@@ -446,7 +446,7 @@ def main():
 
         error = check_indentation(f, parsed[f])
         if error:
-            retval = 1
+            retval |= 1 << len(c.error_vars)
 
         ### check `ctl:auditLogParts=+E` right place in chained rules
         c.check_ctl_audit_log()
@@ -577,15 +577,15 @@ def main():
                     file=f,
                     title="no tests",
                 )
-                retval = 1
 
         # set it once if there is an error
-        if c.is_error():
+        errno = c.is_error()
+        if errno != 0:
             logger.debug(f"Error(s) found in {f}.")
-            retval = 1
+            retval |= errno
 
         logger.end_group()
-        if c.is_error() and logger.output == Output.GITHUB:
+        if errno != 0 and logger.output == Output.GITHUB:
             # Groups hide log entries, so if we find an error we need to tell
             # users where it is.
             logger.error("Error found in previous group")
@@ -596,6 +596,7 @@ def main():
     for tk in txvars:
         if not txvars[tk]["used"]:
             if not has_unused:
+                retval |= 1 << len(c.error_vars)+1
                 logger.debug("Unused TX variable(s):")
             a = txvars[tk]
             logger.error(
