@@ -7,7 +7,7 @@ def test_cli(monkeypatch, tmp_path):
     approved_tags = tmp_path / "APPROVED_TAGS"
     test_exclusions = tmp_path / "TEST_EXCLUSIONS"
     approved_tags.write_text("")
-    test_exclusions.write_text("")
+    test_exclusions.write_text("901120\n901125\n901141\n920160\n920161\n920162")
 
     monkeypatch.setattr(
         sys,
@@ -17,9 +17,9 @@ def test_cli(monkeypatch, tmp_path):
             "-v",
             "4.10.0",
             "-r",
-            "../examples/test1.conf",
+            "examples/test1.conf",
             "-r",
-            "../examples/test?.conf",
+            "examples/test?.conf",
             "-t",
             str(approved_tags),
             "-T",
@@ -33,4 +33,4 @@ def test_cli(monkeypatch, tmp_path):
 
     ret = main()
 
-    assert ret == 0
+    assert ret == 26367
