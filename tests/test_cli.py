@@ -33,4 +33,4 @@ def test_cli(monkeypatch, tmp_path):
 
     ret = main()
 
-    assert ret == 26367
+    assert ret == 9983

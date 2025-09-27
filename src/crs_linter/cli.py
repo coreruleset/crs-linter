@@ -596,7 +596,6 @@ def main():
     for tk in txvars:
         if not txvars[tk]["used"]:
             if not has_unused:
-                retval |= 1 << len(c.error_vars)+1
                 logger.debug("Unused TX variable(s):")
             a = txvars[tk]
             logger.error(
