@@ -127,9 +127,7 @@ class Check():
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
         self.filename_tag_exclusions = []
 
-    def is_error(self):
-        """Returns True if any error is found"""
-        error_vars = [
+        self.error_vars = [
             self.error_case_mistmatch,
             self.error_action_order,
             self.error_wrong_ctl_auditlogparts,
@@ -142,8 +140,16 @@ class Check():
             self.error_no_crstag,
             self.error_no_ver_action_or_wrong_version,
             self.error_tx_N_without_capture_action,
+            self.error_rule_hasnotest
         ]
-        return any([len(var) > 0 for var in error_vars])
+
+    def is_error(self):
+        """Returns non-zero if any error is found, 0 otherwise."""
+        errno = 0
+        for eidx in range(0, len(self.error_vars)):
+            if len(self.error_vars[eidx]) > 0:
+                errno |= 1 << eidx
+        return errno
 
     def store_error(self, msg):
         # store the error msg in the list
