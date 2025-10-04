@@ -89,13 +89,13 @@ def parse_version_from_commit_message(message):
         return None
 
     message_pattern = re.compile(
-        r"(?<!post).*release\s+(v\d+\.\d+\.\d+)(?:$|\s(?:.|\n)*)", re.IGNORECASE
+        r"release\s+(v\d+\.\d+\.\d+)(?:$|\s(?:.|\n)*)", re.IGNORECASE
     )
     match = message_pattern.search(message)
-    if match is not None:
+    if match is not None and "post" not in message:
         version = match.group(1)
         logger.info(f"Detected version from commit message: {version}")
-        return version
+        return Version.parse(version.replace("v", ""))
     else:
         logger.info("Commit message doesn't appear to be for a release")
 
@@ -108,10 +108,10 @@ def parse_version_from_branch_name(head_ref):
     logger.info("Checking for version information in branch name ('release/vx.y.z')...")
     branch_pattern = re.compile(r"release/(v\d+\.\d+\.\d+)")
     match = branch_pattern.search(head_ref)
-    if match is not None:
+    if match is not None and "post" not in head_ref:
         version = match.group(1)
         logger.info(f"Detected version from branch name: {version}")
-        return version
+        return Version.parse(version.replace("v", ""))
     else:
         logger.info(f"Branch name doesn't match release branch pattern: '{head_ref}'")
 
@@ -129,25 +129,31 @@ def generate_version_string(directory, head_ref, commit_message):
         raise ValueError(f"Directory {directory} does not exist")
 
     # First, check the commit message. This might be a release.
-    current_version = parse_version_from_commit_message(commit_message)
-    # Second, see if the branch name has the version information
-    if current_version is None:
-        current_version = parse_version_from_branch_name(head_ref)
-    # Finally, fall back to looking at the last tag.
-    if current_version is None:
-        logger.info("Looking up last tag to determine version...")
-        current_version = get_current_version(projdir=str(directory.resolve()))
-        if current_version is None:
-            raise ValueError(f"Can't get current version from {directory}")
-        logger.info(f"Found last tag {current_version}")
-    if current_version.startswith("v"):
-        current_version = current_version.replace("v", "")
-    parsed_version = Version.parse(current_version)
-    next_minor = parsed_version.bump_minor()
-    version = next_minor.replace(prerelease="dev")
-    logger.info(f"Required version for check: {version}")
+    semver_version = parse_version_from_commit_message(commit_message)
 
-    return f"OWASP_CRS/{version}"
+    # Second, see if the branch name has the version information
+    if semver_version is None:
+        semver_version = parse_version_from_branch_name(head_ref)
+
+    # Finally, fall back to looking at the last tag.
+    if semver_version is None:
+        semver_version = parse_version_from_latest_tag(directory)
+        semver_version = semver_version.bump_minor()
+        semver_version = semver_version.replace(prerelease="dev")
+    logger.info(f"Required version for check: {semver_version}")
+
+    return f"OWASP_CRS/{semver_version}"
+
+
+def parse_version_from_latest_tag(directory):
+    logger.info("Looking up last tag to determine version...")
+    version = get_current_version(projdir=str(directory.resolve()))
+    if version is None:
+        raise ValueError(f"Can't get current version from {directory}")
+    logger.info(f"Found last tag {version}")
+    if version.startswith("v"):
+        version = version.replace("v", "")
+    return version
 
 
 def get_lines_from_file(filename):
