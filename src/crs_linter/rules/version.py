@@ -1,4 +1,6 @@
-def check_ver_action(self, version):
+from crs_linter.lint_problem import LintProblem
+
+def check(data, version):
     """
     check that every rule has a `ver` action
     """
@@ -8,7 +10,7 @@ def check_ver_action(self, version):
     ver_is_ok = False
     crsversion = version
     ruleversion = ""
-    for d in self.data:
+    for d in data:
         if "actions" in d:
             chainlevel = 0
 
@@ -34,21 +36,17 @@ def check_ver_action(self, version):
                             ruleversion = a["act_arg"]
             if ruleid > 0 and chainlevel == 0:
                 if not has_ver:
-                    self.error_no_ver_action_or_wrong_version.append(
-                        {
-                            "ruleid": ruleid,
-                            "line": a["lineno"],
-                            "endLine": a["lineno"],
-                            "message": f"rule does not have 'ver' action; rule id: {ruleid}",
-                        }
+                    yield LintProblem(
+                        line=a["lineno"],
+                        end_line=a["lineno"],
+                        desc=f"rule does not have 'ver' action; rule id: {ruleid}",
+                        rule="version",
                     )
                 else:
                     if not ver_is_ok:
-                        self.error_no_ver_action_or_wrong_version.append(
-                            {
-                                "ruleid": ruleid,
-                                "line": a["lineno"],
-                                "endLine": a["lineno"],
-                                "message": f"rule's 'ver' action has incorrect value; rule id: {ruleid}, version: '{ruleversion}', expected: '{crsversion}'",
-                            }
+                        yield LintProblem(
+                            line=a["lineno"],
+                            end_line=a["lineno"],
+                            desc=f"rule's 'ver' action has incorrect value; rule id: {ruleid}, version: '{ruleversion}', expected: '{crsversion}'",
+                            rule="version",
                         )

@@ -1,4 +1,7 @@
-def check_capture_action(self):
+import re
+from crs_linter.lint_problem import LintProblem
+
+def check(data):
     """
     check that every chained rule has a `capture` action if it uses TX.N variable
     """
@@ -10,7 +13,7 @@ def check_capture_action(self):
     has_capture = False
     use_captured_var = False
     captured_var_chain_level = 0
-    for d in self.data:
+    for d in data:
         # only the SecRule object is relevant
         if d["type"].lower() == "secrule":
             for v in d["variables"]:
@@ -45,13 +48,11 @@ def check_capture_action(self):
                                     not has_capture
                                     or captured_var_chain_level < capture_level
                             ):
-                                self.error_tx_N_without_capture_action.append(
-                                    {
-                                        "ruleid": ruleid,
-                                        "line": a["lineno"],
-                                        "endLine": a["lineno"],
-                                        "message": f"rule uses TX.N without capture; rule id: {ruleid}'",
-                                    }
+                                yield LintProblem(
+                                    line=a["lineno"],
+                                    end_line=a["lineno"],
+                                    desc=f"rule uses TX.N without capture; rule id: {ruleid}",
+                                    rule="capture",
                                 )
                     # clear variables
                     chained = False

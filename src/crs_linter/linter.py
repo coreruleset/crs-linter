@@ -5,6 +5,7 @@ import sys
 from .lint_problem import LintProblem
 from .rules import (
     approved_tags,
+    capture,
     crs_tag,
     ctl_audit_log,
     duplicated_ids,
@@ -13,6 +14,7 @@ from .rules import (
     pl_consistency,
     rule_tests,
     variables_usage,
+    version,
 )
 
 
@@ -29,7 +31,7 @@ class Linter:
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
         self.filename_tag_exclusions = []
 
-    def run_checks(self, tagslist=None, test_cases=None, exclusion_list=None):
+    def run_checks(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None):
         """
         Run all linting checks and yield LintProblem objects.
         This is the main entry point for the linter.
@@ -55,6 +57,13 @@ class Linter:
             
         for problem in crs_tag.check(self.data):
             yield problem
+            
+        for problem in capture.check(self.data):
+            yield problem
+            
+        if crs_version:
+            for problem in version.check(self.data, crs_version):
+                yield problem
             
         if tagslist:
             for problem in approved_tags.check(self.data, tagslist):

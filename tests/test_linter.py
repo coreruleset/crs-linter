@@ -341,9 +341,11 @@ SecRule REQUEST_URI "@rx index.php" \
     """
     p = parse_config(t)
     c = Linter(p)
-    c.check_ver_action(crsversion)
+    problems = list(c.run_checks(crs_version=crsversion))
 
-    assert len(c.error_no_ver_action_or_wrong_version) == 0
+    # Should have no problems for correct version
+    version_problems = [p for p in problems if p.rule == "version"]
+    assert len(version_problems) == 0
 
 
 def test_check_ver_action_fail(crsversion):
@@ -355,13 +357,15 @@ SecRule REQUEST_URI "@rx index.php" \
     t:none,\
     nolog,\
     tag:OWASP_CRS,\
-    ver:OWASP_CRS/1.0.0-dev"    
+    ver:OWASP_CRS/1.0.0-dev"
     """
     p = parse_config(t)
     c = Linter(p)
-    c.check_ver_action(crsversion)
+    problems = list(c.run_checks(crs_version=crsversion))
 
-    assert len(c.error_no_ver_action_or_wrong_version) == 1
+    # Should have 1 problem for incorrect version
+    version_problems = [p for p in problems if p.rule == "version"]
+    assert len(version_problems) == 1
 
 
 def test_check_capture_action():
@@ -380,9 +384,11 @@ SecRule ARGS "@rx attack" \
     """
     p = parse_config(t)
     c = Linter(p)
-    c.check_capture_action()
+    problems = list(c.run_checks())
 
-    assert len(c.error_tx_N_without_capture_action) == 0
+    # Should have no problems for proper capture usage
+    capture_problems = [p for p in problems if p.rule == "capture"]
+    assert len(capture_problems) == 0
 
 
 def test_check_capture_action_fail():
@@ -396,10 +402,12 @@ SecRule ARGS "@rx attack" \
     tag:OWASP_CRS,\
     ver:'OWASP_CRS/4.7.0-dev',\
     chain"
-    SecRule TX:0 "@eq attack"    
+    SecRule TX:0 "@eq attack"
     """
     p = parse_config(t)
     c = Linter(p)
-    c.check_capture_action()
+    problems = list(c.run_checks())
 
-    assert len(c.error_tx_N_without_capture_action) == 1
+    # Should have 1 problem for missing capture action
+    capture_problems = [p for p in problems if p.rule == "capture"]
+    assert len(capture_problems) == 1
