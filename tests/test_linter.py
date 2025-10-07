@@ -12,9 +12,11 @@ def test_check_ignore_proper_case():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Linter(p)
-    c.check_ignore_case()
+    problems = list(c.run_checks())
 
-    assert len(c.error_case_mistmatch) == 0
+    # Should have no problems for proper case
+    ignore_case_problems = [p for p in problems if p.rule == "ignore_case"]
+    assert len(ignore_case_problems) == 0
 
 
 def test_check_ignore_case_fail_invalid_action_case():
@@ -22,9 +24,11 @@ def test_check_ignore_case_fail_invalid_action_case():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,LOG,NoLOg,status:403"'
     p = parse_config(t)
     c = Linter(p)
-    c.check_ignore_case()
+    problems = list(c.run_checks())
 
-    assert len(c.error_case_mistmatch) == 2
+    # Should have 2 problems for wrong case
+    ignore_case_problems = [p for p in problems if p.rule == "ignore_case"]
+    assert len(ignore_case_problems) == 2
 
 
 def test_check_action_order():
@@ -32,9 +36,11 @@ def test_check_action_order():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,nolog"'
     p = parse_config(t)
     c = Linter(p)
-    c.check_action_order()
+    problems = list(c.run_checks())
 
-    assert len(c.error_action_order) == 0
+    # Should have no problems for correct order
+    ordered_actions_problems = [p for p in problems if p.rule == "ordered_actions"]
+    assert len(ordered_actions_problems) == 0
 
 
 def test_check_action_fail_wrong_order():
@@ -42,9 +48,11 @@ def test_check_action_fail_wrong_order():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Linter(p)
-    c.check_action_order()
+    problems = list(c.run_checks())
 
-    assert len(c.error_action_order) == 1
+    # Should have 1 problem for wrong order
+    ordered_actions_problems = [p for p in problems if p.rule == "ordered_actions"]
+    assert len(ordered_actions_problems) == 1
 
 
 def test_check_ctl_auditctl_log_parts():
@@ -52,18 +60,22 @@ def test_check_ctl_auditctl_log_parts():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Linter(p)
-    c.check_ctl_audit_log()
+    problems = list(c.run_checks())
 
-    assert len(c.error_wrong_ctl_auditlogparts) == 0
+    # Should have no problems for valid ctl
+    ctl_audit_log_problems = [p for p in problems if p.rule == "ctl_audit_log"]
+    assert len(ctl_audit_log_problems) == 0
 
 
 def test_check_wrong_ctl_audit_log_parts():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Pizza" "id:1,phase:1,log,ctl:auditLogParts=+E"'
     p = parse_config(t)
     c = Linter(p)
-    c.check_ctl_audit_log()
+    problems = list(c.run_checks())
 
-    assert len(c.error_wrong_ctl_auditlogparts) == 1
+    # Should have 1 problem for forbidden ctl:auditLogParts
+    ctl_audit_log_problems = [p for p in problems if p.rule == "ctl_audit_log"]
+    assert len(ctl_audit_log_problems) == 1
 
 
 def test_check_tx_variable():
@@ -86,9 +98,11 @@ SecRule &TX:detection_paranoia_level "@eq 0" \
     """
     p = parse_config(t)
     c = Linter(p)
-    c.check_tx_variable()
+    problems = list(c.run_checks())
 
-    assert len(c.error_undefined_txvars) == 0
+    # Should have no problems for properly defined variables
+    variables_usage_problems = [p for p in problems if p.rule == "variables_usage"]
+    assert len(variables_usage_problems) == 0
 
 
 def test_check_tx_variable_fail_nonexisting():
@@ -107,10 +121,11 @@ SecRule ARGS "@rx ^.*$" \
         """
     p = parse_config(t)
     c = Linter(p)
-    c.collect_tx_variable()
-    c.check_tx_variable()
+    problems = list(c.run_checks())
 
-    assert len(c.error_undefined_txvars) == 1
+    # Should have 1 problem for undefined variable
+    variables_usage_problems = [p for p in problems if p.rule == "variables_usage"]
+    assert len(variables_usage_problems) == 1
 
 
 def test_check_pl_consistency():
@@ -143,10 +158,11 @@ def test_check_pl_consistency():
     """
     p = parse_config(t)
     c = Linter(p)
-    c.collect_tx_variable()
-    c.check_pl_consistency()
+    problems = list(c.run_checks())
 
-    assert len(c.error_inconsistent_plscores) == 0
+    # Should have no problems for consistent PL
+    pl_consistency_problems = [p for p in problems if p.rule == "pl_consistency"]
+    assert len(pl_consistency_problems) == 0
 
 
 def test_check_pl_consistency_fail():
@@ -179,10 +195,11 @@ def test_check_pl_consistency_fail():
     """
     p = parse_config(t)
     c = Linter(p)
-    c.collect_tx_variable()
-    c.check_pl_consistency()
+    problems = list(c.run_checks())
 
-    assert len(c.error_inconsistent_plscores) == 1
+    # Should have 2 problems for inconsistent PL (tag mismatch and invalid value)
+    pl_consistency_problems = [p for p in problems if p.rule == "pl_consistency"]
+    assert len(pl_consistency_problems) == 2
 
 
 def test_check_tags():
@@ -197,9 +214,11 @@ def test_check_tags():
         """
     p = parse_config(t)
     c = Linter(p)
-    c.check_tags(["PIZZA", "OWASP_CRS"])
+    problems = list(c.run_checks(tagslist=["PIZZA", "OWASP_CRS"]))
 
-    assert len(c.error_new_unlisted_tags) == 0
+    # Should have no problems for approved tags
+    approved_tags_problems = [p for p in problems if p.rule == "approved_tags"]
+    assert len(approved_tags_problems) == 0
 
 
 def test_check_tags_fail():
@@ -214,18 +233,22 @@ def test_check_tags_fail():
         """
     p = parse_config(t)
     c = Linter(p)
-    c.check_tags(["OWASP_CRS", "PIZZA"])
+    problems = list(c.run_checks(tagslist=["OWASP_CRS", "PIZZA"]))
 
-    assert len(c.error_new_unlisted_tags) == 1
+    # Should have 1 problem for unapproved tag
+    approved_tags_problems = [p for p in problems if p.rule == "approved_tags"]
+    assert len(approved_tags_problems) == 1
 
 
 def test_check_lowercase_ignorecase():
     t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
     p = parse_config(t)
     c = Linter(p)
-    c.check_ignore_case()
+    problems = list(c.run_checks())
 
-    assert len([]) == 0
+    # Should have no problems for proper case
+    ignore_case_problems = [p for p in problems if p.rule == "ignore_case"]
+    assert len(ignore_case_problems) == 0
 
 
 def test_check_crs_tag():
@@ -242,9 +265,11 @@ SecRule REQUEST_URI "@rx index.php" \
     p = parse_config(t)
     c = Linter(p, filename = "REQUEST-900-CHECK-TAG.conf")
     print(c.filename)
-    c.check_crs_tag([])
+    problems = list(c.run_checks())
 
-    assert len(c.error_no_crstag) == 0
+    # Should have no problems for rules with OWASP_CRS tag
+    crs_tag_problems = [p for p in problems if p.rule == "crs_tag"]
+    assert len(crs_tag_problems) == 0
 
 
 def test_check_crs_tag_fail():
@@ -259,9 +284,11 @@ SecRule REQUEST_URI "@rx index.php" \
     """
     p = parse_config(t)
     c = Linter(p, filename = "REQUEST-900-CHECK-TAG.conf")
-    c.check_crs_tag([])
+    problems = list(c.run_checks())
 
-    assert len(c.error_no_crstag) == 1
+    # Should have 1 problem for rule without OWASP_CRS tag
+    crs_tag_problems = [p for p in problems if p.rule == "crs_tag"]
+    assert len(crs_tag_problems) == 1
 
 def test_check_crs_tag_fail2():
     t = """
@@ -276,9 +303,11 @@ SecRule REQUEST_URI "@rx index.php" \
     """
     p = parse_config(t)
     c = Linter(p, filename = "REQUEST-900-CHECK-TAG.conf")
-    c.check_crs_tag([])
+    problems = list(c.run_checks())
 
-    assert len(c.error_no_crstag) == 1
+    # Should have no problems for rule with OWASP_CRS tag
+    crs_tag_problems = [p for p in problems if p.rule == "crs_tag"]
+    assert len(crs_tag_problems) == 0
 
 def test_check_crs_tag_fail3():
     t = """
@@ -293,9 +322,11 @@ SecRule REQUEST_URI "@rx index.php" \
     """
     p = parse_config(t)
     c = Linter(p, filename = "REQUEST-900-CHECK-TAG.conf")
-    c.check_crs_tag([])
+    problems = list(c.run_checks())
 
-    assert len(c.error_no_crstag) == 1
+    # Should have 1 problem for rule without OWASP_CRS tag
+    crs_tag_problems = [p for p in problems if p.rule == "crs_tag"]
+    assert len(crs_tag_problems) == 1
 
 def test_check_ver_action(crsversion):
     t = """

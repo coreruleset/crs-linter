@@ -1,4 +1,7 @@
-def check_pl_consistency(self):
+import re
+from crs_linter.lint_problem import LintProblem
+
+def check(data, globtxvars):
     """this method checks the PL consistency
 
     the function iterates through the rules, and catches the set PL, eg:
@@ -26,7 +29,7 @@ def check_pl_consistency(self):
     severity = None  # severity
     has_nolog = False  # nolog action exists
 
-    for d in self.data:
+    for d in data:
         # find the current PL
         if d["type"].lower() in ["secrule"]:
             for v in d["variables"]:
@@ -40,6 +43,7 @@ def check_pl_consistency(self):
 
         if "actions" in d:
             chained = False
+            ruleid = 0
             for a in d["actions"]:
                 if a["act_name"] == "id":
                     ruleid = int(a["act_arg"])
@@ -74,32 +78,29 @@ def check_pl_consistency(self):
                     has_pl_tag = True
                     pltag = int(a["act_arg"].split("/")[1])
                     if has_nolog:
-                        self.error_inconsistent_pltags.append(
-                            {
-                                "ruleid": ruleid,
-                                "line": a["lineno"],
-                                "endLine": a["lineno"],
-                                "message": f'tag \'{a["act_arg"]}\' with \'nolog\' action, rule id: {ruleid}',
-                            }
+                        yield LintProblem(
+                            line=a["lineno"],
+                            end_line=a["lineno"],
+                            
+                            desc=f'tag \'{a["act_arg"]}\' with \'nolog\' action, rule id: {ruleid}',
+                            rule="pl_consistency",
                         )
                     elif pltag != curr_pl and curr_pl > 0:
-                        self.error_inconsistent_pltags.append(
-                            {
-                                "ruleid": ruleid,
-                                "line": a["lineno"],
-                                "endLine": a["lineno"],
-                                "message": f'tag \'{a["act_arg"]}\' on PL {curr_pl}, rule id: {ruleid}',
-                            }
+                        yield LintProblem(
+                            line=a["lineno"],
+                            end_line=a["lineno"],
+                            
+                            desc=f'tag \'{a["act_arg"]}\' on PL {curr_pl}, rule id: {ruleid}',
+                            rule="pl_consistency",
                         )
 
             if not has_pl_tag and not has_nolog and curr_pl >= 1:
-                self.error_inconsistent_pltags.append(
-                    {
-                        "ruleid": ruleid,
-                        "line": a["lineno"],
-                        "endLine": a["lineno"],
-                        "message": f"rule does not have `paranoia-level/{curr_pl}` action, rule id: {ruleid}",
-                    }
+                yield LintProblem(
+                    line=a["lineno"],
+                    end_line=a["lineno"],
+                    
+                    desc=f"rule does not have `paranoia-level/{curr_pl}` action, rule id: {ruleid}",
+                    rule="pl_consistency",
                 )
 
             for t in _txvars:
@@ -111,35 +112,33 @@ def check_pl_consistency(self):
                 scorepl = re.search(r"anomaly_score_pl\d$", t)
                 if scorepl:
                     if curr_pl > 0 and int(t[-1]) != curr_pl:
-                        self.error_inconsistent_plscores.append(
-                            {
-                                "ruleid": ruleid,
-                                "line": _txvlines[t],
-                                "endLine": _txvlines[t],
-                                "message": f"variable {t} on PL {curr_pl}, rule id: {ruleid}",
-                            }
+                        yield LintProblem(
+                            line=_txvlines[t],
+                            end_line=_txvlines[t],
+                            
+                            desc=f"variable {t} on PL {curr_pl}, rule id: {ruleid}",
+                            rule="pl_consistency",
                         )
                     if severity is None and subst_val:  # - do we need this?
-                        self.error_inconsistent_plscores.append(
-                            {
-                                "ruleid": ruleid,
-                                "line": _txvlines[t],
-                                "endLine": _txvlines[t],
-                                "message": f"missing severity action, rule id: {ruleid}",
-                            }
+                        yield LintProblem(
+                            line=_txvlines[t],
+                            end_line=_txvlines[t],
+                            
+                            desc=f"missing severity action, rule id: {ruleid}",
+                            rule="pl_consistency",
                         )
                     else:
                         if val != "tx.%s_anomaly_score" % (severity) and val != "0":
-                            self.error_inconsistent_plscores.append(
-                                {
-                                    "ruleid": ruleid,
-                                    "line": _txvlines[t],
-                                    "endLine": _txvlines[t],
-                                    "message": f"invalid value for anomaly_score_pl{t[-1]}: {val} with severity {severity}, rule id: {ruleid}",
-                                }
+                            yield LintProblem(
+                                line=_txvlines[t],
+                                end_line=_txvlines[t],
+                                
+                                desc=f"invalid value for anomaly_score_pl{t[-1]}: {val} with severity {severity}, rule id: {ruleid}",
+                                rule="pl_consistency",
                             )
                     # variable was found so we need to mark it as used
-                    self.globtxvars[t]["used"] = True
+                    if t in globtxvars:
+                        globtxvars[t]["used"] = True
 
             # reset local variables if we are done with a rule <==> no more 'chain' action
             if not chained:

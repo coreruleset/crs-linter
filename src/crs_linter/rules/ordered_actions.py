@@ -1,4 +1,5 @@
-from crs_linter.linter import LintProblem
+from crs_linter.lint_problem import LintProblem
+from crs_linter.utils import get_id
 
 ORDERED_ACTIONS = [
     "id",  # 0
@@ -45,7 +46,7 @@ def check(data):
         if "actions" in d:
             max_order = 0  # maximum position of read actions
             if not chained:
-                current_rule_id = _get_id(d["actions"])
+                current_rule_id = get_id(d["actions"])
             else:
                 chained = False
 
@@ -66,7 +67,6 @@ def check(data):
                     yield LintProblem(
                         line=current_lineno,
                         end_line=current_lineno,
-                        rule_id=current_rule_id,
                         desc=f'action "{action}" at pos {index - 1} is in the wrong order: "{action}" at pos {index}',
                         rule="ordered_actions",
                     )
@@ -83,7 +83,6 @@ def check(data):
                         yield LintProblem(
                             line=current_lineno,
                             end_line=current_lineno,
-                            rule_id=current_rule_id,
                             desc=f'action "{action}" at pos {index - 1} is in the wrong order: "{action}" at pos {index}',
                             rule="ordered_actions",
                         )

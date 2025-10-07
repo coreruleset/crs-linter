@@ -1,4 +1,5 @@
-from src.crs_linter.linter import LintProblem, get_id
+from crs_linter.lint_problem import LintProblem
+from crs_linter.utils import get_id
 
 
 def check(data, ids):

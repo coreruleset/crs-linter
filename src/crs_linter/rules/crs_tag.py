@@ -1,12 +1,14 @@
 
-def check_crs_tag(self):
+from crs_linter.lint_problem import LintProblem
+
+def check(data):
     """
     check that every rule has a `tag:'OWASP_CRS'` action
     """
     chained = False
     ruleid = 0
     has_crs = False
-    for d in self.data:
+    for d in data:
         if "actions" in d:
             chainlevel = 0
 
@@ -27,12 +29,10 @@ def check_crs_tag(self):
                         if a["act_arg"] == "OWASP_CRS":
                             has_crs = True
             if ruleid > 0 and not has_crs:
-                self.error_no_crstag.append(
-                    {
-                        "ruleid": ruleid,
-                        "line": a["lineno"],
-                        "endLine": a["lineno"],
-                        "message": f"rule does not have tag with value 'OWASP_CRS'; rule id: {ruleid}",
-                    }
+                yield LintProblem(
+                    line=a["lineno"],
+                    end_line=a["lineno"],
+                    desc=f"rule does not have tag with value 'OWASP_CRS'; rule id: {ruleid}",
+                    rule="crs_tag",
                 )
 

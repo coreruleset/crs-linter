@@ -1,4 +1,7 @@
-def check_tx_variable(self):
+import re
+from crs_linter.lint_problem import LintProblem
+
+def check(data, globtxvars):
     """this function checks if a used TX variable has set
 
     a variable is used when:
@@ -12,7 +15,7 @@ def check_tx_variable(self):
     check_exists = None
     has_disruptive = False  # set if rule contains disruptive action
     chained = False
-    for d in self.data:
+    for d in data:
         if d["type"].lower() in ["secrule", "secaction"]:
             if not chained:
                 # works only in Apache, libmodsecurity uses default phase 1
@@ -67,23 +70,21 @@ def check_tx_variable(self):
                         # v holds the tx.ANY variable, but not the captured ones
                         # we should collect these variables
                         if (
-                                v not in self.globtxvars
-                                or phase < self.globtxvars[v]["phase"]
+                                v not in globtxvars
+                                or phase < globtxvars[v]["phase"]
                         ):
-                            self.error_undefined_txvars.append(
-                                {
-                                    "var": v,
-                                    "ruleid": ruleid,
-                                    "line": a["lineno"],
-                                    "endLine": a["lineno"],
-                                    "message": f"TX variable '{v}' not set / later set (rvar) in rule {ruleid}",
-                                }
+                            yield LintProblem(
+                                line=a["lineno"],
+                                end_line=a["lineno"],
+                                
+                                desc=f"TX variable '{v}' not set / later set (rvar) in rule {ruleid}",
+                                rule="variables_usage",
                             )
                         else:
-                            self.globtxvars[v]["used"] = True
+                            globtxvars[v]["used"] = True
                     else:
-                        if v in self.globtxvars:
-                            self.globtxvars[v]["used"] = True
+                        if v in globtxvars:
+                            globtxvars[v]["used"] = True
 
             if "operator_argument" in d:
                 oparg = re.findall(r"%\{(tx.[^%]*)}", d["operator_argument"], re.I)
@@ -93,30 +94,27 @@ def check_tx_variable(self):
                         o = re.sub(r"tx\.", "", o, re.I)
                         if (
                                 (
-                                        o not in self.globtxvars
-                                        or phase < self.globtxvars[o]["phase"]
+                                        o not in globtxvars
+                                        or phase < globtxvars[o]["phase"]
                                 )
                                 and not re.match(r"^\d$", o)
                                 and not re.match(r"/.*/", o)
                                 and check_exists is None
                         ):
-                            self.error_undefined_txvars.append(
-                                {
-                                    "var": o,
-                                    "ruleid": ruleid,
-                                    "line": d["lineno"],
-                                    "endLine": d["lineno"],
-                                    "message": "TX variable '%s' not set / later set (OPARG) in rule %d"
-                                               % (o, ruleid),
-                                }
+                            yield LintProblem(
+                                line=d["lineno"],
+                                end_line=d["lineno"],
+                                
+                                desc=f"TX variable '{o}' not set / later set (OPARG) in rule {ruleid}",
+                                rule="variables_usage",
                             )
                         elif (
-                                o in self.globtxvars
-                                and phase >= self.globtxvars[o]["phase"]
+                                o in globtxvars
+                                and phase >= globtxvars[o]["phase"]
                                 and not re.match(r"^\d$", o)
                                 and not re.match(r"/.*/", o)
                         ):
-                            self.globtxvars[o]["used"] = True
+                            globtxvars[o]["used"] = True
             if "variables" in d:
                 for v in d["variables"]:
                     # check if the variable is TX and has not a & prefix, which counts
@@ -132,54 +130,45 @@ def check_tx_variable(self):
                             rvar = v["variable_part"].lower()
                             if (
                                     (
-                                            rvar not in self.globtxvars
+                                            rvar not in globtxvars
                                             or (
-                                                    ruleid != self.globtxvars[rvar]["ruleid"]
-                                                    and phase < self.globtxvars[rvar]["phase"]
+                                                    ruleid != globtxvars[rvar]["ruleid"]
+                                                    and phase < globtxvars[rvar]["phase"]
                                             )
                                     )
                                     and not re.match(r"^\d$", rvar)
                                     and not re.match(r"/.*/", rvar)
                             ):
-                                self.error_undefined_txvars.append(
-                                    {
-                                        "var": rvar,
-                                        "ruleid": ruleid,
-                                        "line": d["lineno"],
-                                        "endLine": d["lineno"],
-                                        "message": "TX variable '%s' not set / later set (VAR)"
-                                                   % (v["variable_part"]),
-                                    }
+                                yield LintProblem(
+                                    line=d["lineno"],
+                                    end_line=d["lineno"],
+                                    
+                                    desc=f"TX variable '{v['variable_part']}' not set / later set (VAR)",
+                                    rule="variables_usage",
                                 )
                             elif (
-                                    rvar in self.globtxvars
-                                    and phase >= self.globtxvars[rvar]["phase"]
+                                    rvar in globtxvars
+                                    and phase >= globtxvars[rvar]["phase"]
                                     and not re.match(r"^\d$", rvar)
                                     and not re.match(r"/.*/", rvar)
                             ):
-                                self.globtxvars[rvar]["used"] = True
+                                globtxvars[rvar]["used"] = True
                         else:
                             check_exists = True
-                            self.globtxvars[v["variable_part"].lower()] = {
+                            globtxvars[v["variable_part"].lower()] = {
                                 "var": v["variable_part"].lower(),
                                 "phase": phase,
                                 "used": False,
-                                "file": self.filename,
+                                "file": "unknown",  # filename not available in this context
                                 "ruleid": ruleid,
                                 "message": "",
                                 "line": d["lineno"],
                                 "endLine": d["lineno"],
                             }
                             if has_disruptive:
-                                self.globtxvars[v["variable_part"].lower()][
+                                globtxvars[v["variable_part"].lower()][
                                     "used"
                                 ] = True
-                            if (
-                                    len(self.error_undefined_txvars) > 0
-                                    and self.error_undefined_txvars[-1]["var"]
-                                    == v["variable_part"].lower()
-                            ):
-                                del self.error_undefined_txvars[-1]
             if not chained:
                 check_exists = None
                 has_disruptive = False

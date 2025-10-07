@@ -1,73 +1,124 @@
-def check_ignore_case(self):
-    # check the ignore cases at operators, actions,
-    # transformations and ctl arguments
-    for d in self.data:
+from crs_linter.lint_problem import LintProblem
+
+# Define the valid operators, actions, transformations and ctl args
+OPERATORS = "beginsWith|containsWord|contains|detectSQLi|detectXSS|endsWith|eq|fuzzyHash|geoLookup|ge|gsbLookup|gt|inspectFile|ipMatch|ipMatchF|ipMatchFromFile|le|lt|noMatch|pmFromFile|pmf|pm|rbl|rsub|rx|streq|strmatch|unconditionalMatch|validateByteRange|validateDTD|validateHash|validateSchema|validateUrlEncoding|validateUtf8Encoding|verifyCC|verifyCPF|verifySSN|within".split("|")
+OPERATORSL = [o.lower() for o in OPERATORS]
+
+ACTIONS = "accuracy|allow|append|auditlog|block|capture|chain|ctl|deny|deprecatevar|drop|exec|expirevar|id|initcol|logdata|log|maturity|msg|multiMatch|noauditlog|nolog|pass|pause|phase|prepend|proxy|redirect|rev|sanitiseArg|sanitiseMatched|sanitiseMatchedBytes|sanitiseRequestHeader|sanitiseResponseHeader|setenv|setrsc|setsid|setuid|setvar|severity|skipAfter|skip|status|tag|t|ver|xmlns".split("|")
+ACTIONSL = [a.lower() for a in ACTIONS]
+
+TRANSFORMS = "base64DecodeExt|base64Decode|base64Encode|cmdLine|compressWhitespace|cssDecode|escapeSeqDecode|hexDecode|hexEncode|htmlEntityDecode|jsDecode|length|lowercase|md5|none|normalisePathWin|normalisePath|normalizePathWin|normalizePath|parityEven7bit|parityOdd7bit|parityZero7bit|removeCommentsChar|removeComments|removeNulls|removeWhitespace|replaceComments|replaceNulls|sha1|sqlHexDecode|trimLeft|trimRight|trim|uppercase|urlDecodeUni|urlDecode|urlEncode|utf8toUnicode".split("|")
+TRANSFORMSL = [t.lower() for t in TRANSFORMS]
+
+CTLS = "auditEngine|auditLogParts|debugLogLevel|forceRequestBodyVariable|hashEnforcement|hashEngine|requestBodyAccess|requestBodyLimit|requestBodyProcessor|responseBodyAccess|responseBodyLimit|ruleEngine|ruleRemoveById|ruleRemoveByMsg|ruleRemoveByTag|ruleRemoveTargetById|ruleRemoveTargetByMsg|ruleRemoveTargetByTag".split("|")
+CTLSL = [c.lower() for c in CTLS]
+
+
+def check(data):
+    """check the ignore cases at operators, actions, transformations and ctl arguments"""
+    chained = False
+    current_ruleid = 0
+    
+    for d in data:
         if "actions" in d:
-            aidx = 0  # index of action in list
-            if not self.chained:
-                self.current_ruleid = 0
+            if not chained:
+                current_ruleid = 0
             else:
-                self.chained = False
+                chained = False
 
             for a in d["actions"]:
                 action = a["act_name"].lower()
-                self.curr_lineno = a["lineno"]
                 if action == "id":
-                    self.current_ruleid = int(a["act_arg"])
+                    current_ruleid = int(a["act_arg"])
 
                 if action == "chain":
-                    self.chained = True
+                    chained = True
 
                 # check the action is valid
-                if action not in self.actionsl:
-                    self.store_error(f"Invalid action {action}")
+                if action not in ACTIONSL:
+                    yield LintProblem(
+                        line=a["lineno"],
+                        end_line=a["lineno"],
+                        desc=f"Invalid action {action}",
+                        rule="ignore_case",
+                    )
                 # check the action case sensitive format
-                if (
-                        self.actions[self.actionsl.index(action)]
-                        != a["act_name"]
+                elif (
+                    ACTIONS[ACTIONSL.index(action)] != a["act_name"]
                 ):
-                    self.store_error(f"Action case mismatch: {action}")
+                    yield LintProblem(
+                        line=a["lineno"],
+                        end_line=a["lineno"],
+                        desc=f"Action case mismatch: {action}",
+                        rule="ignore_case",
+                    )
 
                 if a["act_name"] == "ctl":
                     # check the ctl argument is valid
-                    if a["act_arg"].lower() not in self.ctlsl:
-                        self.store_error(f'Invalid ctl {a["act_arg"]}')
+                    if a["act_arg"].lower() not in CTLSL:
+                        yield LintProblem(
+                            line=a["lineno"],
+                            end_line=a["lineno"],
+                            desc=f'Invalid ctl {a["act_arg"]}',
+                            rule="ignore_case",
+                        )
                     # check the ctl argument case sensitive format
-                    if (
-                            self.ctls[self.ctlsl.index(a["act_arg"].lower())]
-                            != a["act_arg"]
+                    elif (
+                        CTLS[CTLSL.index(a["act_arg"].lower())] != a["act_arg"]
                     ):
-                        self.store_error(f'Ctl case mismatch: {a["act_arg"]}')
+                        yield LintProblem(
+                            line=a["lineno"],
+                            end_line=a["lineno"],
+                            desc=f'Ctl case mismatch: {a["act_arg"]}',
+                            rule="ignore_case",
+                        )
                 if a["act_name"] == "t":
                     # check the transform is valid
-                    if a["act_arg"].lower() not in self.transformsl:
-                        self.store_error(f'Invalid transform: {a["act_arg"]}')
-                    # check the transform case sensitive format
-                    if (
-                            self.transforms[
-                                self.transformsl.index(a["act_arg"].lower())
-                            ]
-                            != a["act_arg"]
-                    ):
-                        self.store_error(
-                            f'Transform case mismatch : {a["act_arg"]}'
+                    if a["act_arg"].lower() not in TRANSFORMSL:
+                        yield LintProblem(
+                            line=a["lineno"],
+                            end_line=a["lineno"],
+                            desc=f'Invalid transform: {a["act_arg"]}',
+                            rule="ignore_case",
                         )
-                aidx += 1
+                    # check the transform case sensitive format
+                    elif (
+                        TRANSFORMS[TRANSFORMSL.index(a["act_arg"].lower())] != a["act_arg"]
+                    ):
+                        yield LintProblem(
+                            line=a["lineno"],
+                            end_line=a["lineno"],
+                            desc=f'Transform case mismatch: {a["act_arg"]}',
+                            rule="ignore_case",
+                        )
+        
         if "operator" in d and d["operator"] != "":
-            self.curr_lineno = d["oplineno"]
             # strip the operator
             op = d["operator"].replace("!", "").replace("@", "")
             # check the operator is valid
-            if op.lower() not in self.operatorsl:
-                self.store_error(f'Invalid operator: {d["operator"]}')
+            if op.lower() not in OPERATORSL:
+                yield LintProblem(
+                    line=d["oplineno"],
+                    end_line=d["oplineno"],
+                    
+                    desc=f'Invalid operator: {d["operator"]}',
+                    rule="ignore_case",
+                )
             # check the operator case sensitive format
-            if self.operators[self.operatorsl.index(op.lower())] != op:
-                self.store_error(f'Operator case mismatch: {d["operator"]}')
+            elif OPERATORS[OPERATORSL.index(op.lower())] != op:
+                yield LintProblem(
+                    line=d["oplineno"],
+                    end_line=d["oplineno"],
+                    
+                    desc=f'Operator case mismatch: {d["operator"]}',
+                    rule="ignore_case",
+                )
         else:
             if d["type"].lower() == "secrule":
-                self.curr_lineno = d["lineno"]
-                self.store_error("Empty operator isn't allowed")
-        if self.current_ruleid > 0:
-            for e in self.error_case_mistmatch:
-                e["ruleid"] = self.current_ruleid
-                e["message"] += f" (rule: {self.current_ruleid})"
+                yield LintProblem(
+                    line=d["lineno"],
+                    end_line=d["lineno"],
+                    
+                    desc="Empty operator isn't allowed",
+                    rule="ignore_case",
+                )

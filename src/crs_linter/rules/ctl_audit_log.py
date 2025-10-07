@@ -1,0 +1,24 @@
+from crs_linter.lint_problem import LintProblem
+
+
+def check(data):
+    """check there is no ctl:auditLogParts action in any rules"""
+    for d in data:
+        if "actions" in d:
+            current_ruleid = 0
+            for a in d["actions"]:
+                # get the 'id' of rule
+                if a["act_name"] == "id":
+                    current_ruleid = int(a["act_arg"])
+
+                # check if action is ctl:auditLogParts
+                if (
+                    a["act_name"].lower() == "ctl"
+                    and a["act_arg"].lower() == "auditlogparts"
+                ):
+                    yield LintProblem(
+                        line=a["lineno"],
+                        end_line=a["lineno"],
+                        desc="ctl:auditLogParts action is not allowed",
+                        rule="ctl_audit_log",
+                    )
