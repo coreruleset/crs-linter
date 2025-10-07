@@ -1,5 +1,8 @@
 import msc_pyparser
 import re
+import os.path
+import sys
+
 
 class LintProblem:
     """Represents a linting problem found by crs-linter."""
@@ -132,7 +135,6 @@ class Linter:
             []
         )  # list of rules which don't have any tests
         # regex to produce tag from filename:
-        import os.path
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
         self.filename_tag_exclusions = []
 
@@ -240,7 +242,6 @@ class Linter:
                     e["message"] += f" (rule: {self.current_ruleid})"
 
     def check_action_order(self):
-        import sys
         for d in self.data:
             if "actions" in d:
                 max_order = 0  # maximum position of read actions
@@ -781,7 +782,6 @@ class Linter:
         """
         generate tag from filename
         """
-        import os.path
         filename_for_tag = fname if fname is not None else self.filename
         filename = self.re_fname.sub("", os.path.basename(os.path.splitext(filename_for_tag)[0]))
         filename = filename.replace("APPLICATION-", "")
