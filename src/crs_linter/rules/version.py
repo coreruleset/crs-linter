@@ -52,4 +52,3 @@ def check_ver_action(self, version):
                                 "message": f"rule's 'ver' action has incorrect value; rule id: {ruleid}, version: '{ruleversion}', expected: '{crsversion}'",
                             }
                         )
-

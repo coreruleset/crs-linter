@@ -1,5 +1,4 @@
-from src.crs_linter.linter import LintProblem
-
+from crs_linter.linter import LintProblem
 
 def check_tags(self, tags):
     """
@@ -11,7 +10,7 @@ def check_tags(self, tags):
         if "actions" in d:
             for a in d["actions"]:
                if a["act_name"] == "tag":
-                   tag = a["act_arg"]
+                    tag = a["act_arg"]
                     # check wheter tag is in tagslist
                     if tags.count(tag) == 0:
                         yield LintProblem(

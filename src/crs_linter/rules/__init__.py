@@ -1,4 +1,5 @@
 # import all checks
+from crs_linter.linter import LintProblem
 
 from . import (
     approved_tags,
