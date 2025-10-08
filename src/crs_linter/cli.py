@@ -237,9 +237,20 @@ def main():
         c = Linter(parsed[f], f, txvars)
 
         # Check indentation separately (not part of the rule system yet)
-        error = indentation.check(f, parsed[f])
-        if error:
+        indentation_checker = indentation.Indentation()
+        indentation_problems = list(indentation_checker.check(f, parsed[f]))
+        if indentation_problems:
             retval = 1
+            logger.error(indentation_checker.error_message, file=f, title=indentation_checker.error_title)
+            for problem in indentation_problems:
+                logger.error(
+                    problem.desc,
+                    file=f,
+                    line=problem.line,
+                    end_line=problem.end_line,
+                )
+        else:
+            logger.debug(indentation_checker.success_message)
 
         # Run all linting checks using the new generic system
         problems = list(c.run_checks(
