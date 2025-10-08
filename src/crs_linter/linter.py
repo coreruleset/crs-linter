@@ -3,61 +3,55 @@ import re
 import os.path
 import sys
 from .lint_problem import LintProblem
+from .rules_metadata import get_rules
+
+# Import all rules to trigger auto-registration via metaclass
 from .rules import (
     approved_tags,
-    capture,
+    check_capture,
     crs_tag,
     ctl_audit_log,
-    duplicated_ids,
+    deprecated,
+    duplicated,
     ignore_case,
+    indentation,
+    lowercase_ignorecase,
     ordered_actions,
     pl_consistency,
     rule_tests,
     variables_usage,
-    version,
+    version
 )
 
 
 class Linter:
     """Main linter class that orchestrates all rule checks."""
-
-    def __init__(self, data, filename=None, txvars=None):
+    
+    def __init__(self, data, filename=None, txvars=None, rules=None):
         self.data = data  # holds the parsed data
         self.filename = filename
         self.globtxvars = txvars or {}  # global TX variables hash table
         self.ids = {}  # list of rule id's and their location in files
-
+        
         # regex to produce tag from filename:
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
         self.filename_tag_exclusions = []
+        
+        # Initialize rules system
+        self.rules = rules or get_rules()
 
     def _get_rule_configs(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None):
         """
-        Get rule configurations for the linter.
+        Get rule configurations for the linter using the Rules system.
         This method can be overridden to customize which rules to run.
-        
-        Returns a list of tuples: (rule_module, args, kwargs, condition)
-        - rule_module: The rule module to execute
-        - args: Positional arguments to pass to rule.check()
-        - kwargs: Keyword arguments to pass to rule.check()
-        - condition: Boolean or None. If None, always run. If False, skip. If True, run.
         """
-        return [
-            # Core rules that always run
-            (ignore_case, [self.data], {}, None),
-            (ordered_actions, [self.data], {}, None),
-            (ctl_audit_log, [self.data], {}, None),
-            (variables_usage, [self.data, self.globtxvars], {}, None),
-            (pl_consistency, [self.data, self.globtxvars], {}, None),
-            (crs_tag, [self.data], {}, None),
-            (capture, [self.data], {}, None),
-            
-            # Conditional rules
-            (version, [self.data, crs_version], {}, crs_version is not None),
-            (approved_tags, [self.data, tagslist], {}, tagslist is not None),
-            (rule_tests, [self.data, test_cases, exclusion_list or []], {}, test_cases is not None),
-            (duplicated_ids, [self.data, self.ids], {}, None),
-        ]
+        return self.rules.get_rule_configs(
+            self,
+            tagslist=tagslist,
+            test_cases=test_cases,
+            exclusion_list=exclusion_list,
+            crs_version=crs_version
+        )
 
     def run_checks(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None):
         """
@@ -71,14 +65,15 @@ class Linter:
         rule_configs = self._get_rule_configs(tagslist, test_cases, exclusion_list, crs_version)
         
         # Run all rule checks generically
-        for rule_module, args, kwargs, condition in rule_configs:
+        for rule_instance, args, kwargs, condition in rule_configs:
             if condition is None or condition:  # Run if no condition or condition is True
                 try:
-                    for problem in rule_module.check(*args, **kwargs):
+                    for problem in rule_instance.check(*args, **kwargs):
                         yield problem
                 except Exception as e:
                     # Log error but continue with other rules
-                    print(f"Error running rule {rule_module.__name__}: {e}", file=sys.stderr)
+                    rule_name = getattr(rule_instance, '__class__', type(rule_instance)).__name__
+                    print(f"Error running rule {rule_name}: {e}", file=sys.stderr)
 
     def _collect_tx_variables(self):
         """Collect TX variables in rules and check for duplicated IDs"""

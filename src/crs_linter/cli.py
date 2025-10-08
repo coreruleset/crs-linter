@@ -257,49 +257,21 @@ def main():
                 problems_by_rule[rule] = []
             problems_by_rule[rule].append(problem)
 
-        # Log results for each rule type
-        rule_messages = {
-            "ignore_case": ("Ignore case check ok.", "Ignore case check found error(s)", "Case check"),
-            "ordered_actions": ("Action order check ok.", "Action order check found error(s)", "Action order check"),
-            "ctl_audit_log": ("no 'ctl:auditLogParts' action found.", "Found 'ctl:auditLogParts' action", "'ctl:auditLogParts' isn't allowed in CRS"),
-            "variables_usage": ("All TX variables are set.", "Found unset TX variable(s)", "unset TX variable"),
-            "pl_consistency": ("Paranoia-level tags are correct.", "Found incorrect paranoia-level/N tag(s)", "wrong or missing paranoia-level/N tag"),
-            "approved_tags": ("No new tags added.", "There are one or more new tag(s).", "new unlisted tag"),
-            "crs_tag": ("No rule without OWASP_CRS tag.", "There are one or more rules without OWASP_CRS tag", "'tag:OWASP_CRS' is missing"),
-            "version": ("No rule without correct ver action.", "There are one or more rules with incorrect ver action.", "ver is missing / incorrect"),
-            "capture": ("No rule uses TX.N without capture action.", "There are one or more rules using TX.N without capture action.", "capture is missing"),
-            "rule_tests": ("All rules have tests.", "There are one or more rules without tests.", "no tests"),
-            "duplicated_ids": ("No duplicate IDs", "Found duplicated ID(s)", "'id' is duplicated"),
-        }
-
-        # Log results for each rule
+        # Log results for each rule using the Rules system
         for rule, problems_list in problems_by_rule.items():
-            if rule in rule_messages:
-                success_msg, error_msg, title = rule_messages[rule]
-                if len(problems_list) == 0:
-                    logger.debug(success_msg)
-                else:
-                    logger.error(error_msg, file=f, title=title)
-                    for problem in problems_list:
-                        logger.error(
-                            problem.desc,
-                            file=f,
-                            line=problem.line,
-                            end_line=problem.end_line,
-                        )
+            success_msg, error_msg, title = c.rules.get_rule_messages(rule)
+            
+            if len(problems_list) == 0:
+                logger.debug(success_msg)
             else:
-                # Generic handling for unknown rules
-                if len(problems_list) == 0:
-                    logger.debug(f"{rule} check ok.")
-                else:
-                    logger.error(f"{rule} check found error(s)", file=f, title=rule)
-                    for problem in problems_list:
-                        logger.error(
-                            problem.desc,
-                            file=f,
-                            line=problem.line,
-                            end_line=problem.end_line,
-                        )
+                logger.error(error_msg, file=f, title=title)
+                for problem in problems_list:
+                    logger.error(
+                        problem.desc,
+                        file=f,
+                        line=problem.line,
+                        end_line=problem.end_line,
+                    )
 
         # Set return value if any problems found
         if len(problems) > 0:
