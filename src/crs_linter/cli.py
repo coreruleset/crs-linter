@@ -236,176 +236,78 @@ def main():
         logger.debug(f)
         c = Linter(parsed[f], f, txvars)
 
-
-        ### check case usings
-        c.check_ignore_case()
-        if len(c.error_case_mistmatch) == 0:
-            logger.debug("Ignore case check ok.")
-        else:
-            logger.error("Ignore case check found error(s)")
-            for a in c.error_case_mistmatch:
-                logger.error(
-                    a["message"],
-                    title="Case check",
-                    file=f,
-                    line=a["line"],
-                    end_line=a["endLine"],
-                )
-
-        ### check action's order
-        c.check_action_order()
-        if len(c.error_action_order) == 0:
-            logger.debug("Action order check ok.")
-        else:
-            for a in c.error_action_order:
-                logger.error(
-                    "Action order check found error(s)",
-                    file=f,
-                    title="Action order check",
-                )
-
+        # Check indentation separately (not part of the rule system yet)
         error = indentation.check(f, parsed[f])
         if error:
             retval = 1
 
-        ### check `ctl:auditLogParts=+E` right place in chained rules
-        c.check_ctl_audit_log()
-        if len(c.error_wrong_ctl_auditlogparts) == 0:
-            logger.debug("no 'ctl:auditLogParts' action found.")
-        else:
-            for a in c.error_wrong_ctl_auditlogparts:
-                logger.error(
-                    "Found 'ctl:auditLogParts' action",
-                    file=f,
-                    title="'ctl:auditLogParts' isn't allowed in CRS",
-                )
+        # Run all linting checks using the new generic system
+        problems = list(c.run_checks(
+            tagslist=tags,
+            test_cases=test_cases if args.tests is not None else None,
+            exclusion_list=test_exclusion_list if args.tests is not None else None,
+            crs_version=crs_version
+        ))
 
-        ### collect TX variables
-        #   this method collects the TX variables, which set via a
-        #   `setvar` action anywhere
-        #   this method does not check any mandatory clause
-        c.collect_tx_variable()
+        # Group problems by rule type for better logging
+        problems_by_rule = {}
+        for problem in problems:
+            rule = problem.rule or "unknown"
+            if rule not in problems_by_rule:
+                problems_by_rule[rule] = []
+            problems_by_rule[rule].append(problem)
 
-        ### check duplicate ID's
-        #   c.error_duplicated_id filled during the tx variable collected
-        if len(c.error_duplicated_id) == 0:
-            logger.debug("No duplicate IDs")
-        else:
-            logger.error("Found duplicated ID(s)", file=f, title="'id' is duplicated")
+        # Log results for each rule type
+        rule_messages = {
+            "ignore_case": ("Ignore case check ok.", "Ignore case check found error(s)", "Case check"),
+            "ordered_actions": ("Action order check ok.", "Action order check found error(s)", "Action order check"),
+            "ctl_audit_log": ("no 'ctl:auditLogParts' action found.", "Found 'ctl:auditLogParts' action", "'ctl:auditLogParts' isn't allowed in CRS"),
+            "variables_usage": ("All TX variables are set.", "Found unset TX variable(s)", "unset TX variable"),
+            "pl_consistency": ("Paranoia-level tags are correct.", "Found incorrect paranoia-level/N tag(s)", "wrong or missing paranoia-level/N tag"),
+            "approved_tags": ("No new tags added.", "There are one or more new tag(s).", "new unlisted tag"),
+            "crs_tag": ("No rule without OWASP_CRS tag.", "There are one or more rules without OWASP_CRS tag", "'tag:OWASP_CRS' is missing"),
+            "version": ("No rule without correct ver action.", "There are one or more rules with incorrect ver action.", "ver is missing / incorrect"),
+            "capture": ("No rule uses TX.N without capture action.", "There are one or more rules using TX.N without capture action.", "capture is missing"),
+            "rule_tests": ("All rules have tests.", "There are one or more rules without tests.", "no tests"),
+            "duplicated_ids": ("No duplicate IDs", "Found duplicated ID(s)", "'id' is duplicated"),
+        }
 
-        ### check PL consistency
-        c.check_pl_consistency()
-        if len(c.error_inconsistent_pltags) == 0:
-            logger.debug("Paranoia-level tags are correct.")
-        else:
-            for a in c.error_inconsistent_pltags:
-                logger.error(
-                    "Found incorrect paranoia-level/N tag(s)",
-                    file=f,
-                    title="wrong or missing paranoia-level/N tag",
-                )
-
-        if len(c.error_inconsistent_plscores) == 0:
-            logger.debug("PL anomaly_scores are correct.")
-        else:
-            for a in c.error_inconsistent_plscores:
-                logger.error(
-                    "Found incorrect (inbound|outbout)_anomaly_score value(s)",
-                    file=f,
-                    title="wrong (inbound|outbout)_anomaly_score variable or value",
-                )
-
-        ### check existence of used TX variables
-        c.check_tx_variable()
-        if len(c.error_undefined_txvars) == 0:
-            logger.debug("All TX variables are set.")
-        else:
-            for a in c.error_undefined_txvars:
-                logger.error(
-                    a["message"],
-                    file=f,
-                    title="unset TX variable",
-                    line=a["line"],
-                    end_line=a["endLine"],
-                )
-
-        ### check new unlisted tags
-        c.check_tags(tags)
-        if len(c.error_new_unlisted_tags) == 0:
-            logger.debug("No new tags added.")
-        else:
-            logger.error(
-                "There are one or more new tag(s).", file=f, title="new unlisted tag"
-            )
-
-        ### check for t:lowercase in combination with (?i) in regex
-        c.check_lowercase_ignorecase()
-        if len(c.error_combined_transformation_and_ignorecase) == 0:
-            logger.debug("No t:lowercase and (?i) flag used.")
-        else:
-            logger.error(
-                "There are one or more combinations of t:lowercase and (?i) flag",
-                file=f,
-                title="t:lowercase and (?i)",
-            )
-
-        ### check for tag:'OWASP_CRS'
-        c.check_crs_tag(filename_tags_exclusions)
-        if len(c.error_no_crstag) == 0:
-            logger.debug("No rule without OWASP_CRS tag.")
-        else:
-            filenametag = c.gen_crs_file_tag()
-            logger.error(
-                f"There are one or more rules without OWASP_CRS or {filenametag} tag",
-                file=f,
-                title=f"'tag:OWASP_CRS' or 'tag:OWASP_CRS/{filenametag}' is missing",
-            )
-
-        ### check for ver action
-        c.check_ver_action(crs_version)
-        if len(c.error_no_ver_action_or_wrong_version) == 0:
-            logger.debug("No rule without correct ver action.")
-        else:
-            logger.error(
-                "There are one or more rules with incorrect ver action.",
-                file=f,
-                title="ver is missing / incorrect",
-            )
-
-        ### check for capture action
-        c.check_capture_action()
-        if len(c.error_tx_N_without_capture_action) == 0:
-            logger.debug("No rule uses TX.N without capture action.")
-        else:
-            logger.error(
-                "There are one or more rules using TX.N without capture action.",
-                file=f,
-                title="capture is missing",
-            )
-
-        if args.tests is not None:
-            # check rules without test
-            c.error_rule_hasnotest = []
-            c.find_ids_without_tests(test_cases, test_exclusion_list)
-            if len(c.error_rule_hasnotest) == 0:
-                logger.debug("All rules have tests.")
+        # Log results for each rule
+        for rule, problems_list in problems_by_rule.items():
+            if rule in rule_messages:
+                success_msg, error_msg, title = rule_messages[rule]
+                if len(problems_list) == 0:
+                    logger.debug(success_msg)
+                else:
+                    logger.error(error_msg, file=f, title=title)
+                    for problem in problems_list:
+                        logger.error(
+                            problem.desc,
+                            file=f,
+                            line=problem.line,
+                            end_line=problem.end_line,
+                        )
             else:
-                for e in c.error_rule_hasnotest:
-                    print(e)
-                logger.error(
-                    "There are one or more rules without tests.",
-                    file=f,
-                    title="no tests",
-                )
-                retval = 1
+                # Generic handling for unknown rules
+                if len(problems_list) == 0:
+                    logger.debug(f"{rule} check ok.")
+                else:
+                    logger.error(f"{rule} check found error(s)", file=f, title=rule)
+                    for problem in problems_list:
+                        logger.error(
+                            problem.desc,
+                            file=f,
+                            line=problem.line,
+                            end_line=problem.end_line,
+                        )
 
-        # set it once if there is an error
-        if c.is_error():
+        # Set return value if any problems found
+        if len(problems) > 0:
             logger.debug(f"Error(s) found in {f}.")
             retval = 1
 
         logger.end_group()
-        if c.is_error() and logger.output == Output.GITHUB:
+        if len(problems) > 0 and logger.output == Output.GITHUB:
             # Groups hide log entries, so if we find an error we need to tell
             # users where it is.
             logger.error("Error found in previous group")
