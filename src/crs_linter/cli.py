@@ -209,6 +209,7 @@ def main():
         filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
     parsed = read_files(files)
     txvars = {}
+    ids = {}  # Shared dict for tracking rule IDs across all files
 
     if args.tests is not None:
         # read existing tests
@@ -233,7 +234,7 @@ def main():
     for f in parsed.keys():
         logger.start_group(f)
         logger.debug(f)
-        c = Linter(parsed[f], f, txvars)
+        c = Linter(parsed[f], f, txvars, ids)
 
         # Run all linting checks using the new generic system
         problems = list(c.run_checks(

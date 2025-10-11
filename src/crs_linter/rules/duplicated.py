@@ -11,17 +11,34 @@ class DuplicatedIds(Rule):
         self.success_message = "No duplicate IDs found."
         self.error_message = "Found duplicated ID(s)"
         self.error_title = "'id' is duplicated"
-        self.args = ("data", "ids")
+        self.args = ("data", "ids", "filename")
 
-    def check(self, data, ids):
+    def check(self, data, ids, filename):
         """Checks the duplicated rule ID"""
         for d in data:
             if "actions" in d:
                 rule_id = get_id(d["actions"])
+                # Skip rules without an ID (get_id returns 0 when no ID is found)
+                if rule_id == 0:
+                    continue
+                    
                 if rule_id in ids:
+                    # Found a duplicate!
                     yield LintProblem(
                         line=0,  # Line number not available in this context
                         end_line=0,
                         desc=f"id {rule_id} is duplicated, previous place: {ids[rule_id]['fname']}:{ids[rule_id]['lineno']}",
                         rule="duplicated",
                     )
+                else:
+                    # First occurrence - add to ids dict for future duplicate detection
+                    # Get the line number from the actions
+                    lineno = 0
+                    for action in d["actions"]:
+                        if action["act_name"] == "id":
+                            lineno = action.get("lineno", 0)
+                            break
+                    ids[rule_id] = {
+                        "fname": filename,
+                        "lineno": lineno
+                    }

@@ -27,11 +27,11 @@ from .rules import (
 class Linter:
     """Main linter class that orchestrates all rule checks."""
     
-    def __init__(self, data, filename=None, txvars=None, rules=None):
+    def __init__(self, data, filename=None, txvars=None, ids=None, rules=None):
         self.data = data  # holds the parsed data
         self.filename = filename
         self.globtxvars = txvars or {}  # global TX variables hash table
-        self.ids = {}  # list of rule id's and their location in files
+        self.ids = ids if ids is not None else {}  # list of rule id's and their location in files (shared across files)
         
         # regex to produce tag from filename:
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
@@ -76,7 +76,7 @@ class Linter:
                     print(f"Error running rule {rule_name}: {e}", file=sys.stderr)
 
     def _collect_tx_variables(self):
-        """Collect TX variables in rules and check for duplicated IDs"""
+        """Collect TX variables in rules"""
         chained = False
         for d in self.data:
             if "actions" in d:
@@ -88,14 +88,6 @@ class Linter:
                 for a in d["actions"]:
                     if a["act_name"] == "id":
                         ruleid = int(a["act_arg"])
-                        if ruleid in self.ids:
-                            # This will be caught by duplicated_ids rule
-                            pass
-                        else:
-                            self.ids[ruleid] = {
-                                "fname": self.filename,
-                                "lineno": a["lineno"],
-                            }
                     if a["act_name"] == "phase":
                         phase = int(a["act_arg"])
                     if a["act_name"] == "chain":
