@@ -60,6 +60,10 @@ class Rules:
                 args[args.index("exclusion_list")] = exclusion_list
             if "version" in args:
                 args[args.index("version")] = crs_version
+            if "filename" in args:
+                args[args.index("filename")] = linter_instance.filename
+            if "content" in args:
+                args[args.index("content")] = linter_instance.data
 
             # Evaluate condition if a function is provided
             condition = None

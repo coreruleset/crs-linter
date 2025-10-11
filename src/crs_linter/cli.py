@@ -10,7 +10,6 @@ import os.path
 
 from crs_linter.linter import Linter
 from crs_linter.logger import Logger, Output
-from crs_linter.rules import indentation
 from crs_linter.utils import *
 
 
@@ -235,22 +234,6 @@ def main():
         logger.start_group(f)
         logger.debug(f)
         c = Linter(parsed[f], f, txvars)
-
-        # Check indentation separately (not part of the rule system yet)
-        indentation_checker = indentation.Indentation()
-        indentation_problems = list(indentation_checker.check(f, parsed[f]))
-        if indentation_problems:
-            retval = 1
-            logger.error(indentation_checker.error_message, file=f, title=indentation_checker.error_title)
-            for problem in indentation_problems:
-                logger.error(
-                    problem.desc,
-                    file=f,
-                    line=problem.line,
-                    end_line=problem.end_line,
-                )
-        else:
-            logger.debug(indentation_checker.success_message)
 
         # Run all linting checks using the new generic system
         problems = list(c.run_checks(
