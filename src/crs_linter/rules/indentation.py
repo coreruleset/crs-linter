@@ -4,6 +4,7 @@ from pathlib import Path
 import msc_pyparser
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rule import Rule
+from crs_linter.utils import remove_comments
 
 
 class Indentation(Rule):
@@ -25,6 +26,10 @@ class Indentation(Rule):
         try:
             with open(filename, "r") as fp:
                 original_content = fp.read()
+                # Apply the same transformation as in cli.py for crs-setup.conf.example
+                # This removes leading # from commented-out SecRule/SecAction blocks
+                if Path(filename).name.startswith("crs-setup.conf.example"):
+                    original_content = remove_comments(original_content)
         except:
             yield LintProblem(
                 line=0,
