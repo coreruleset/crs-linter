@@ -1,5 +1,6 @@
 import difflib
 import re
+from pathlib import Path
 import msc_pyparser
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rule import Rule
@@ -24,7 +25,7 @@ class Indentation(Rule):
         try:
             with open(filename, "r") as fp:
                 from_lines = fp.readlines()
-                if filename.startswith("crs-setup.conf.example"):
+                if Path(filename).name.startswith("crs-setup.conf.example"):
                     from_lines = self._remove_comments("".join(from_lines)).split("\n")
                     from_lines = [l + "\n" for l in from_lines]
         except:
