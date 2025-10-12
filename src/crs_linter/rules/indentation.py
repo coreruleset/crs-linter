@@ -21,13 +21,10 @@ class Indentation(Rule):
         error = False
         problems = []
 
-        # make a diff to check the indentations
+        # Read the original file for comparison
         try:
             with open(filename, "r") as fp:
-                from_lines = fp.readlines()
-                if Path(filename).name.startswith("crs-setup.conf.example"):
-                    from_lines = self._remove_comments("".join(from_lines)).split("\n")
-                    from_lines = [l + "\n" for l in from_lines]
+                original_content = fp.read()
         except:
             yield LintProblem(
                 line=0,
@@ -37,23 +34,29 @@ class Indentation(Rule):
             )
             return
 
-        # virtual output
+        # Generate the formatted output from the parsed content
         writer = msc_pyparser.MSCWriter(content)
         writer.generate()
-        output = []
-        for l in writer.output:
-            output += [l + "\n" for l in l.split("\n") if l != "\n"]
+        formatted_output = "\n".join(writer.output)
+        
+        # Compare line by line
+        original_lines = original_content.splitlines(keepends=True)
+        formatted_lines = formatted_output.splitlines(keepends=True)
 
-        if len(from_lines) < len(output):
-            from_lines.append("\n")
-        elif len(from_lines) > len(output):
-            output.append("\n")
+        # Normalize line counts for comparison
+        if len(original_lines) < len(formatted_lines):
+            original_lines.append("\n")
+        elif len(original_lines) > len(formatted_lines):
+            formatted_lines.append("\n")
 
-        diff_lines = list(difflib.unified_diff(from_lines, output, lineterm=''))
-        if from_lines == output:
+        # Check if they're identical
+        if original_lines == formatted_lines:
             # No indentation errors
             return
 
+        # Generate diff to show differences
+        diff_lines = list(difflib.unified_diff(original_lines, formatted_lines, lineterm=''))
+        
         # Process the diff to extract meaningful error messages
         i = 0
         while i < len(diff_lines):
@@ -108,12 +111,3 @@ class Indentation(Rule):
                 i = j
             else:
                 i += 1
-
-    def _remove_comments(self, content):
-        """Remove comments from content"""
-        lines = content.split('\n')
-        result = []
-        for line in lines:
-            if not line.strip().startswith('#'):
-                result.append(line)
-        return '\n'.join(result)
