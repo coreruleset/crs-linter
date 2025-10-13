@@ -208,7 +208,7 @@ def main():
     if args.filename_tags_exclusions is not None:
         filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
     parsed = read_files(files)
-    txvars = {}
+    txvars = {} # Shared dict for tracking TX variables across all files
     ids = {}  # Shared dict for tracking rule IDs across all files
 
     if args.tests is not None:

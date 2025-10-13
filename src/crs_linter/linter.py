@@ -30,7 +30,7 @@ class Linter:
     def __init__(self, data, filename=None, txvars=None, ids=None, rules=None):
         self.data = data  # holds the parsed data
         self.filename = filename
-        self.globtxvars = txvars or {}  # global TX variables hash table
+        self.globtxvars = txvars if txvars is not None else {}  # global TX variables hash table (shared across files)
         self.ids = ids if ids is not None else {}  # list of rule id's and their location in files (shared across files)
         
         # regex to produce tag from filename:
