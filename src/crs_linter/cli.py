@@ -239,8 +239,8 @@ def main():
         # Run all linting checks using the new generic system
         problems = list(c.run_checks(
             tagslist=tags,
-            test_cases=test_cases if args.tests is not None else None,
-            exclusion_list=test_exclusion_list if args.tests is not None else None,
+            test_cases=test_cases,
+            exclusion_list=test_exclusion_list,
             crs_version=crs_version
         ))
 
