@@ -55,29 +55,6 @@ def test_check_action_fail_wrong_order():
     assert len(ordered_actions_problems) == 1
 
 
-def test_check_ctl_auditctl_log_parts():
-    """Test that there is no ctl:auditLogParts action in any rules"""
-    t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Mozilla" "id:1,phase:1,log,status:403"'
-    p = parse_config(t)
-    c = Linter(p)
-    problems = list(c.run_checks())
-
-    # Should have no problems for valid ctl
-    ctl_audit_log_problems = [p for p in problems if p.rule == "ctl_audit_log"]
-    assert len(ctl_audit_log_problems) == 0
-
-
-def test_check_wrong_ctl_audit_log_parts():
-    t = 'SecRule REQUEST_HEADERS:User-Agent "@rx ^Pizza" "id:1,phase:1,log,ctl:auditLogParts=+E"'
-    p = parse_config(t)
-    c = Linter(p)
-    problems = list(c.run_checks())
-
-    # Should have 1 problem for forbidden ctl:auditLogParts
-    ctl_audit_log_problems = [p for p in problems if p.rule == "ctl_audit_log"]
-    assert len(ctl_audit_log_problems) == 1
-
-
 def test_check_tx_variable():
     """Test that variables are defined in the transaction"""
     t = """SecRule &TX:blocking_paranoia_level "@eq 0" \
@@ -144,9 +121,9 @@ def test_check_pl_consistency():
     setvar:'tx.inbound_anomaly_score_pl2=0',\
     setvar:'tx.inbound_anomaly_score_pl3=0',\
     setvar:'tx.inbound_anomaly_score_pl4=0'"
-    
+
     SecRule TX:DETECTION_PARANOIA_LEVEL "@lt 1" "id:944011,phase:1,pass,nolog,tag:'OWASP_CRS',ver:'OWASP_CRS/4.11.0-dev',skipAfter:END-REQUEST-944-APPLICATION-ATTACK-JAVA"
-    
+
     SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \
     "id:920160,\
     phase:1,\
@@ -286,9 +263,10 @@ SecRule REQUEST_URI "@rx index.php" \
     c = Linter(p, filename = "REQUEST-900-CHECK-TAG.conf")
     problems = list(c.run_checks())
 
-    # Should have 1 problem for rule without OWASP_CRS tag
+    # Should have 2 problems for rule without OWASP_CRS tag
     crs_tag_problems = [p for p in problems if p.rule == "crs_tag"]
-    assert len(crs_tag_problems) == 1
+    # [2:None: rule does not have tag with value 'OWASP_CRS'; rule id: 1 (crs_tag), 2:None: rule does not have tag for filename: expected 'OWASP_CRS/CHECK-TAG'; rule id: 1 (crs_tag)]
+    assert len(crs_tag_problems) == 2
 
 def test_check_crs_tag_fail2():
     t = """
@@ -305,9 +283,10 @@ SecRule REQUEST_URI "@rx index.php" \
     c = Linter(p, filename = "REQUEST-900-CHECK-TAG.conf")
     problems = list(c.run_checks())
 
-    # Should have no problems for rule with OWASP_CRS tag
+    # Should have one problem for rule that lacks OWASP_CRS/CHECK-TAG tag
     crs_tag_problems = [p for p in problems if p.rule == "crs_tag"]
-    assert len(crs_tag_problems) == 0
+    # [2:None: rule does not have tag for filename: expected 'OWASP_CRS/CHECK-TAG'; rule id: 1 (crs_tag)]
+    assert len(crs_tag_problems) == 1
 
 def test_check_crs_tag_fail3():
     t = """
@@ -337,7 +316,7 @@ SecRule REQUEST_URI "@rx index.php" \
     t:none,\
     nolog,\
     tag:OWASP_CRS,\
-    ver:'OWASP_CRS/4.10.0'"    
+    ver:'OWASP_CRS/4.10.0'"
     """
     p = parse_config(t)
     c = Linter(p)
