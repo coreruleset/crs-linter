@@ -5,14 +5,14 @@ from crs_linter.rule import Rule
 
 class VariablesUsage(Rule):
     """Check if a used TX variable has been set."""
-    
+
     def __init__(self):
         super().__init__()
         self.success_message = "All TX variables are set."
         self.error_message = "Found unset TX variable(s)"
         self.error_title = "unset TX variable"
         self.args = ("data", "globtxvars")
-    
+
     def check(self, data, globtxvars):
         """this function checks if a used TX variable has set
 
@@ -51,6 +51,16 @@ class VariablesUsage(Rule):
                     val_act_arg = []
                     # Check act_arg for TX variable references in action arguments
                     # (e.g., in setvar, msg, logdata actions that may reference TX vars)
+                    # example:
+                    #    setvar:'tx.inbound_anomaly_score_threshold=5'
+                    #
+                    #  act_arg     <- tx.inbound_anomaly_score_threshold
+                    #  act_atg_val <- 5
+                    #
+                    # example2 (same as above, but no single quotes!):
+                    #    setvar:tx.inbound_anomaly_score_threshold=5
+                    #  act_arg     <- tx.inbound_anomaly_score_threshold
+                    #  act_atg_val <- 5
                     if "act_arg" in a and a["act_arg"] is not None:
                         val_act = re.findall(r"%\{(tx.[^%]*)}", a["act_arg"], re.I)
                     # Check act_arg_val for TX variable references in action argument values
@@ -114,6 +124,12 @@ class VariablesUsage(Rule):
                             if not v["counter"]:
                                 # variable_part contains the TX variable name after "TX:"
                                 # e.g., for "TX:foo", variable_part is "foo"
+                                # * if the variable part (after '.' or ':') is not there in
+                                #   the list of collected TX variables, and
+                                # * not a numeric, eg TX:2, and
+                                # * not a regular expression, between '/' chars, eg TX:/^foo/
+                                # OR
+                                # * rule's phase lower than declaration's phase
                                 rvar = v["variable_part"].lower()
                                 if (
                                     (
