@@ -10,7 +10,6 @@ from .rules import (
     approved_tags,
     check_capture,
     crs_tag,
-    ctl_audit_log,
     deprecated,
     duplicated,
     ignore_case,
@@ -26,17 +25,17 @@ from .rules import (
 
 class Linter:
     """Main linter class that orchestrates all rule checks."""
-    
+
     def __init__(self, data, filename=None, txvars=None, ids=None, rules=None):
         self.data = data  # holds the parsed data
         self.filename = filename
         self.globtxvars = txvars if txvars is not None else {}  # global TX variables hash table (shared across files)
         self.ids = ids if ids is not None else {}  # list of rule id's and their location in files (shared across files)
-        
+
         # regex to produce tag from filename:
         self.re_fname = re.compile(r"(REQUEST|RESPONSE)\-\d{3}\-")
         self.filename_tag_exclusions = []
-        
+
         # Initialize rules system
         self.rules = rules or get_rules()
 
@@ -61,10 +60,10 @@ class Linter:
         """
         # First collect TX variables and check for duplicated IDs
         self._collect_tx_variables()
-        
+
         # Get rule configurations
         rule_configs = self._get_rule_configs(tagslist, test_cases, exclusion_list, crs_version, filename_tag_exclusions)
-        
+
         # Run all rule checks generically
         for rule_instance, args, kwargs, condition in rule_configs:
             if condition is None or condition:  # Run if no condition or condition is True
