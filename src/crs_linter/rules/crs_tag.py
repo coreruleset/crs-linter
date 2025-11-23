@@ -28,7 +28,7 @@ class CrsTag(Rule):
         """
         if filename_tag_exclusions is None:
             filename_tag_exclusions = []
-            
+
         # Generate expected filename tag
         expected_filename_tag = None
         check_filename_tag = False
@@ -36,13 +36,13 @@ class CrsTag(Rule):
             expected_filename_tag = self._gen_crs_file_tag(filename)
             # Check if this file should be excluded from filename tag checking
             check_filename_tag = os.path.basename(filename) not in filename_tag_exclusions
-        
+
         chained = False
         ruleid = 0
         has_crs = False
         has_filename_tag = False
         tags_in_rule = []
-        
+
         for d in data:
             if "actions" in d:
                 chainlevel = 0
@@ -55,7 +55,7 @@ class CrsTag(Rule):
                     chainlevel = 0
                 else:
                     chained = False
-                    
+
                 for a in d["actions"]:
                     if a["act_name"] == "id":
                         ruleid = int(a["act_arg"])
@@ -70,7 +70,11 @@ class CrsTag(Rule):
                                 has_crs = True
                             if expected_filename_tag and tag_value == expected_filename_tag:
                                 has_filename_tag = True
-                                
+
+                # Skip CRS admin rules (rule IDs ending in 1-9)
+                if ruleid > 0 and ruleid % 10 in range(1, 10):
+                    continue
+
                 # Check for missing OWASP_CRS tag
                 if ruleid > 0 and not has_crs:
                     yield LintProblem(
@@ -79,7 +83,7 @@ class CrsTag(Rule):
                         desc=f"rule does not have tag with value 'OWASP_CRS'; rule id: {ruleid}",
                         rule="crs_tag",
                     )
-                
+
                 # Check for missing filename tag (if applicable)
                 if ruleid > 0 and check_filename_tag and expected_filename_tag and not has_filename_tag:
                     yield LintProblem(

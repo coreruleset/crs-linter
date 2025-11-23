@@ -231,7 +231,7 @@ def test_check_lowercase_ignorecase():
 def test_check_crs_tag():
     t = """
 SecRule REQUEST_URI "@rx index.php" \
-    "id:1,\
+    "id:900100,\
     phase:1,\
     deny,\
     t:none,\
@@ -252,7 +252,7 @@ SecRule REQUEST_URI "@rx index.php" \
 def test_check_crs_tag_fail():
     t = """
 SecRule REQUEST_URI "@rx index.php" \
-    "id:1,\
+    "id:900110,\
     phase:1,\
     deny,\
     t:none,\

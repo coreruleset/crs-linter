@@ -81,7 +81,7 @@ def test_individual_rule_ignorecase():
 def test_individual_rule_crstag():
     """Test the CrsTag rule individually."""
     rule = CrsTag()
-    sample_data = parse_config('SecRule ARGS "@rx ^test" "id:1,phase:1,log"')
+    sample_data = parse_config('SecRule ARGS "@rx ^test" "id:900100,phase:1,log"')
 
     problems = list(rule.check(sample_data))
 
