@@ -63,7 +63,7 @@ class OrderedActions(Rule):
 
                 for index, a in enumerate(d["actions"]):
                     action = a["act_name"].lower()
-                    # get the 'id' of rule
+                    # get the line number of rule
                     current_lineno = a["lineno"]
 
                     # check if chained
