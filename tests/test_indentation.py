@@ -119,19 +119,21 @@ def test_check_indentation_broken_format():
 
 
 def test_check_indentation_trailing_newline():
-    """Test that rules with a trailing newline are caught.
+    """Test that rules with a trailing newline are accepted.
 
     The msc_pyparser formatter does not add a trailing newline,
-    so files with trailing newlines will fail the check.
+    but most editors do. We normalize trailing newlines so that
+    properly formatted files with trailing newlines pass the check.
+    This matches the behavior of the official CRS files.
     """
-    # Properly formatted but with trailing newline (common in many editors)
+    # Properly formatted with trailing newline (common in many editors)
     with_trailing_newline = (
         'SecRule REQUEST_URI "@beginswith /index.php" \\\n'
         '    "id:1,\\\n'
         '    phase:1,\\\n'
         '    deny,\\\n'
         '    t:none,\\\n'
-        '    nolog"\n'  # <- This trailing newline causes the issue
+        '    nolog"\n'  # <- This trailing newline is acceptable
     )
 
     # Create a temporary file
@@ -148,9 +150,9 @@ def test_check_indentation_trailing_newline():
         c = Linter(p, filename=temp_file, file_content=with_trailing_newline)
         problems = list(c.run_checks())
 
-        # Should have indentation problems due to trailing newline
+        # Should NOT have indentation problems - trailing newlines are normalized
         indentation_problems = [p for p in problems if p.rule == "indentation"]
-        assert len(indentation_problems) > 0, "Expected indentation problems for trailing newline"
+        assert len(indentation_problems) == 0, f"Expected no indentation problems for trailing newline, but found: {indentation_problems}"
     finally:
         # Clean up temporary file
         os.unlink(temp_file)

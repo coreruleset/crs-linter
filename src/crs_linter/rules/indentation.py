@@ -35,9 +35,14 @@ class Indentation(Rule):
         writer.generate()
         formatted_output = "\n".join(writer.output)
 
+        # Normalize trailing newlines: MSCWriter doesn't add a trailing newline,
+        # but most editors do. We strip trailing newlines from both to compare content.
+        original_normalized = original_content.rstrip('\n')
+        formatted_normalized = formatted_output.rstrip('\n')
+
         # Compare line by line
-        original_lines = original_content.splitlines(keepends=True)
-        formatted_lines = formatted_output.splitlines(keepends=True)
+        original_lines = original_normalized.splitlines(keepends=True)
+        formatted_lines = formatted_normalized.splitlines(keepends=True)
 
         # Check if they're identical
         if original_lines == formatted_lines:
