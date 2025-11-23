@@ -39,12 +39,6 @@ class Indentation(Rule):
         original_lines = original_content.splitlines(keepends=True)
         formatted_lines = formatted_output.splitlines(keepends=True)
 
-        # Normalize line counts for comparison
-        if len(original_lines) < len(formatted_lines):
-            original_lines.append("\n")
-        elif len(original_lines) > len(formatted_lines):
-            formatted_lines.append("\n")
-
         # Check if they're identical
         if original_lines == formatted_lines:
             # No indentation errors
@@ -82,21 +76,26 @@ class Indentation(Rule):
                     j += 1
 
                 # Create a meaningful error message
-                desc_parts = []
-                if removed_lines:
-                    desc_parts.append(f"Remove: {', '.join(removed_lines[:2])}")
-                    if len(removed_lines) > 2:
-                        desc_parts[-1] += f" (+{len(removed_lines) - 2} more)"
-                if added_lines:
-                    desc_parts.append(f"Expected: {', '.join(added_lines[:2])}")
-                    if len(added_lines) > 2:
-                        desc_parts[-1] += f" (+{len(added_lines) - 2} more)"
-
-                if desc_parts:
-                    desc = f"Indentation/formatting error - {' | '.join(desc_parts)}"
-                else:
-                    # Likely whitespace-only differences
+                # Check if the removed and added lines are identical (indicating whitespace-only changes)
+                if removed_lines == added_lines and removed_lines:
+                    # This is a whitespace/trailing newline issue
                     desc = f"Indentation/whitespace error (lines {start_line}-{start_line + count - 1}): check spacing and formatting"
+                else:
+                    desc_parts = []
+                    if removed_lines:
+                        desc_parts.append(f"Remove: {', '.join(removed_lines[:2])}")
+                        if len(removed_lines) > 2:
+                            desc_parts[-1] += f" (+{len(removed_lines) - 2} more)"
+                    if added_lines:
+                        desc_parts.append(f"Expected: {', '.join(added_lines[:2])}")
+                        if len(added_lines) > 2:
+                            desc_parts[-1] += f" (+{len(added_lines) - 2} more)"
+
+                    if desc_parts:
+                        desc = f"Indentation/formatting error - {' | '.join(desc_parts)}"
+                    else:
+                        # Likely whitespace-only differences
+                        desc = f"Indentation/whitespace error (lines {start_line}-{start_line + count - 1}): check spacing and formatting"
 
                 yield LintProblem(
                     line=start_line,
