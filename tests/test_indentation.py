@@ -49,7 +49,7 @@ def test_check_indentation_proper_format():
         assert p is not None
 
         # Run linter with the actual file
-        c = Linter(p, filename=temp_file)
+        c = Linter(p, filename=temp_file, file_content=properly_formatted)
         problems = list(c.run_checks())
 
         # Should have no indentation problems for properly formatted rules
@@ -103,7 +103,7 @@ def test_check_indentation_broken_format():
         assert p is not None
 
         # Run linter with the actual file
-        c = Linter(p, filename=temp_file)
+        c = Linter(p, filename=temp_file, file_content=broken_formatted)
         problems = list(c.run_checks())
 
         # Should have indentation problems for improperly formatted rules
@@ -145,7 +145,7 @@ def test_check_indentation_trailing_newline():
         assert p is not None
 
         # Run linter with the actual file
-        c = Linter(p, filename=temp_file)
+        c = Linter(p, filename=temp_file, file_content=with_trailing_newline)
         problems = list(c.run_checks())
 
         # Should have indentation problems due to trailing newline
@@ -179,7 +179,7 @@ def test_check_indentation_mixed_spacing():
         assert p is not None
 
         # Run linter with the actual file
-        c = Linter(p, filename=temp_file)
+        c = Linter(p, filename=temp_file, file_content=mixed_spacing)
         problems = list(c.run_checks())
 
         # Should have indentation problems for mixed tabs/spaces

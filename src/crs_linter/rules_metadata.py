@@ -64,6 +64,8 @@ class Rules:
                 args[args.index("filename")] = linter_instance.filename
             if "content" in args:
                 args[args.index("content")] = linter_instance.data
+            if "file_content" in args:
+                args[args.index("file_content")] = linter_instance.file_content
             if "filename_tag_exclusions" in args:
                 args[args.index("filename_tag_exclusions")] = filename_tag_exclusions
 

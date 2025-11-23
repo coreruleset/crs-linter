@@ -1,10 +1,8 @@
 import difflib
 import re
-from pathlib import Path
 import msc_pyparser
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rule import Rule
-from crs_linter.utils import remove_comments
 
 
 class Indentation(Rule):
@@ -15,29 +13,22 @@ class Indentation(Rule):
         self.success_message = "Indentation check ok."
         self.error_message = "Indentation check found error(s)"
         self.error_title = "Indentation error"
-        self.args = ("filename", "content")
+        self.args = ("filename", "content", "file_content")
 
-    def check(self, filename, content):
+    def check(self, filename, content, file_content):
         """Check indentation in the file"""
-        error = False
-        problems = []
 
-        # Read the original file for comparison
-        try:
-            with open(filename, "r") as fp:
-                original_content = fp.read()
-                # Apply the same transformation as in cli.py for crs-setup.conf.example
-                # This removes leading # from commented-out SecRule/SecAction blocks
-                if Path(filename).name.endswith(".example"):
-                    original_content = remove_comments(original_content)
-        except:
+        # Use the already-read file content (which has already been processed for .example files)
+        if file_content is None:
             yield LintProblem(
                 line=0,
                 end_line=0,
-                desc=f"Can't open file for indentation check: {filename}",
+                desc=f"File content not available for indentation check: {filename}",
                 rule="indentation",
             )
             return
+
+        original_content = file_content
 
         # Generate the formatted output from the parsed content
         writer = msc_pyparser.MSCWriter(content)

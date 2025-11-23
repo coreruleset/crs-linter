@@ -26,9 +26,10 @@ from .rules import (
 class Linter:
     """Main linter class that orchestrates all rule checks."""
 
-    def __init__(self, data, filename=None, txvars=None, ids=None, rules=None):
+    def __init__(self, data, filename=None, txvars=None, ids=None, rules=None, file_content=None):
         self.data = data  # holds the parsed data
         self.filename = filename
+        self.file_content = file_content  # original file content (before parsing)
         self.globtxvars = txvars if txvars is not None else {}  # global TX variables hash table (shared across files)
         self.ids = ids if ids is not None else {}  # list of rule id's and their location in files (shared across files)
 

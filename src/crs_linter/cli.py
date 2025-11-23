@@ -51,16 +51,20 @@ def read_files(filenames):
     global logger
 
     parsed = {}
+    file_contents = {}
     # filenames must be in order to correctly detect unused variables
     filenames = sorted(filenames)
 
     for f in filenames:
         try:
-            with open(f, "r") as file:
-                data = file.read()
+            with open(f, "r", encoding="UTF-8") as file:
+                original_data = file.read()
+                data = original_data
                 # modify the content of the file, if it is the "crs-setup.conf.example"
                 if os.path.basename(f).startswith("crs-setup.conf.example"):
                     data = remove_comments(data)
+                # Store the original (possibly modified) content
+                file_contents[f] = data
         except FileNotFoundError:
             logger.error(f"Can't open file: {f}")
             sys.exit(1)
@@ -87,7 +91,7 @@ def read_files(filenames):
             )
             continue
 
-    return parsed
+    return parsed, file_contents
 
 
 def _arg_in_argv(argv, args):
@@ -207,10 +211,10 @@ def main():
     filename_tags_exclusions = []
     if args.filename_tags_exclusions is not None:
         filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
-    parsed = read_files(files)
+    parsed, file_contents = read_files(files)
     txvars = {} # Shared dict for tracking TX variables across all files
     ids = {}  # Shared dict for tracking rule IDs across all files
-    
+
     # Initialize test-related variables (may be None if not provided)
     test_cases = None
     test_exclusion_list = None
@@ -238,7 +242,7 @@ def main():
     for f in parsed.keys():
         logger.start_group(f)
         logger.debug(f)
-        c = Linter(parsed[f], f, txvars, ids)
+        c = Linter(parsed[f], f, txvars, ids, file_content=file_contents.get(f))
 
         # Run all linting checks using the new generic system
         problems = list(c.run_checks(
