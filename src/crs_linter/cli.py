@@ -210,6 +210,10 @@ def main():
     parsed = read_files(files)
     txvars = {} # Shared dict for tracking TX variables across all files
     ids = {}  # Shared dict for tracking rule IDs across all files
+    
+    # Initialize test-related variables (may be None if not provided)
+    test_cases = None
+    test_exclusion_list = None
 
     if args.tests is not None:
         # read existing tests
@@ -241,7 +245,8 @@ def main():
             tagslist=tags,
             test_cases=test_cases,
             exclusion_list=test_exclusion_list,
-            crs_version=crs_version
+            crs_version=crs_version,
+            filename_tag_exclusions=filename_tags_exclusions
         ))
 
         # Group problems by rule type for better logging

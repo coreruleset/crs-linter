@@ -40,7 +40,7 @@ class Linter:
         # Initialize rules system
         self.rules = rules or get_rules()
 
-    def _get_rule_configs(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None):
+    def _get_rule_configs(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None):
         """
         Get rule configurations for the linter using the Rules system.
         This method can be overridden to customize which rules to run.
@@ -50,10 +50,11 @@ class Linter:
             tagslist=tagslist,
             test_cases=test_cases,
             exclusion_list=exclusion_list,
-            crs_version=crs_version
+            crs_version=crs_version,
+            filename_tag_exclusions=filename_tag_exclusions
         )
 
-    def run_checks(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None):
+    def run_checks(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None):
         """
         Run all linting checks and yield LintProblem objects.
         This is the main entry point for the linter.
@@ -62,7 +63,7 @@ class Linter:
         self._collect_tx_variables()
         
         # Get rule configurations
-        rule_configs = self._get_rule_configs(tagslist, test_cases, exclusion_list, crs_version)
+        rule_configs = self._get_rule_configs(tagslist, test_cases, exclusion_list, crs_version, filename_tag_exclusions)
         
         # Run all rule checks generically
         for rule_instance, args, kwargs, condition in rule_configs:

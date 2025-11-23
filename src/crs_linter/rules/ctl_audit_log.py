@@ -30,6 +30,6 @@ class CtlAuditLog(Rule):
                         yield LintProblem(
                             line=a["lineno"],
                             end_line=a["lineno"],
-                            desc="ctl:auditLogParts action is not allowed",
+                            desc=f"ctl:auditLogParts action is not allowed; rule id: {current_ruleid}",
                             rule="ctl_audit_log",
                         )

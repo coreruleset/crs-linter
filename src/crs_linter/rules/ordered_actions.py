@@ -78,7 +78,7 @@ class OrderedActions(Rule):
                         yield LintProblem(
                             line=current_lineno,
                             end_line=current_lineno,
-                            desc=f'action "{action}" at pos {index - 1} is in the wrong order: "{action}" at pos {index}',
+                            desc=f'action "{action}" at pos {index - 1} is in the wrong order: "{action}" at pos {index}; rule id: {current_rule_id}',
                             rule="ordered_actions",
                         )
 
@@ -94,7 +94,7 @@ class OrderedActions(Rule):
                             yield LintProblem(
                                 line=current_lineno,
                                 end_line=current_lineno,
-                                desc=f'action "{action}" at pos {index - 1} is in the wrong order: "{action}" at pos {index}',
+                                desc=f'action "{action}" at pos {index - 1} is in the wrong order: "{action}" at pos {index}; rule id: {current_rule_id}',
                                 rule="ordered_actions",
                             )
 

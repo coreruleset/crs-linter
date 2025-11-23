@@ -57,6 +57,9 @@ class PlConsistency(Rule):
                     if a["act_name"] == "tag":
                         tags.append(a)
                     if a["act_name"] == "setvar":
+                        # Parser deficiency: setvar action arguments are not fully parsed
+                        # so we need to manually check if it's a TX variable by examining
+                        # the first 2 characters of the argument
                         if a["act_arg"][0:2].lower() == "tx":
                             txv = a["act_arg"][3:].split("=")
                             txv[0] = txv[0].lower()  # variable name

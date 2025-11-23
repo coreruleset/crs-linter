@@ -35,7 +35,7 @@ class Rules:
                 return rule.get_messages()
         return f"{name} check ok.", f"{name} check found error(s)", name.replace('_', ' ').title()
 
-    def get_rule_configs(self, linter_instance, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None):
+    def get_rule_configs(self, linter_instance, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None):
         """
         Generates rule configurations for the linter based on registered rules and current context.
         """
@@ -64,6 +64,8 @@ class Rules:
                 args[args.index("filename")] = linter_instance.filename
             if "content" in args:
                 args[args.index("content")] = linter_instance.data
+            if "filename_tag_exclusions" in args:
+                args[args.index("filename_tag_exclusions")] = filename_tag_exclusions
 
             # Evaluate condition if a function is provided
             condition = None
@@ -75,7 +77,8 @@ class Rules:
                     tagslist=tagslist,
                     test_cases=test_cases,
                     exclusion_list=exclusion_list,
-                    crs_version=crs_version
+                    crs_version=crs_version,
+                    filename_tag_exclusions=filename_tag_exclusions
                 )
             else:
                 # Default conditions based on parameter presence

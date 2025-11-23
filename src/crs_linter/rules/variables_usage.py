@@ -49,8 +49,12 @@ class VariablesUsage(Rule):
 
                     val_act = []
                     val_act_arg = []
+                    # Check act_arg for TX variable references in action arguments
+                    # (e.g., in setvar, msg, logdata actions that may reference TX vars)
                     if "act_arg" in a and a["act_arg"] is not None:
                         val_act = re.findall(r"%\{(tx.[^%]*)}", a["act_arg"], re.I)
+                    # Check act_arg_val for TX variable references in action argument values
+                    # (e.g., the right-hand side of setvar assignments like "setvar:tx.foo=%{tx.bar}")
                     if "act_arg_val" in a and a["act_arg_val"] is not None:
                         val_act_arg = re.findall(
                             r"%\{(tx.[^%]*)}", a["act_arg_val"], re.I
@@ -105,7 +109,11 @@ class VariablesUsage(Rule):
                 if "variables" in d:
                     for v in d["variables"]:
                         if v["variable"].lower() == "tx":
+                            # Check if it's not a counter variable (e.g., &TX:foo)
+                            # Counter checks are used to test variable existence, not usage
                             if not v["counter"]:
+                                # variable_part contains the TX variable name after "TX:"
+                                # e.g., for "TX:foo", variable_part is "foo"
                                 rvar = v["variable_part"].lower()
                                 if (
                                     (
