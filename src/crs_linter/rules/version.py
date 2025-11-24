@@ -3,7 +3,42 @@ from crs_linter.rule import Rule
 
 
 class Version(Rule):
-    """Check that every rule has a `ver` action."""
+    """Check that every rule has a `ver` action with the correct version.
+
+    This rule verifies that all rules have a 'ver' action with the correct
+    CRS version string. The version can be specified manually using the -v
+    flag, or automatically extracted from git tags using 'git describe --tags'.
+
+    Example of failing rules:
+        # Missing 'ver' action
+        SecRule REQUEST_URI "@rx index.php" \\
+            "id:1,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog,\\
+            tag:OWASP_CRS"  # Fails: no ver action
+
+        # Incorrect 'ver' value
+        SecRule REQUEST_URI "@rx index.php" \\
+            "id:2,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog,\\
+            tag:OWASP_CRS,\\
+            ver:OWASP_CRS/1.0.0-dev"  # Fails if expected version is 4.6.0-dev
+
+    Example of a correct rule:
+        SecRule REQUEST_URI "@rx index.php" \\
+            "id:3,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog,\\
+            tag:OWASP_CRS,\\
+            ver:'OWASP_CRS/4.6.0-dev'"
+    """
 
     def __init__(self):
         super().__init__()

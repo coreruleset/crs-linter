@@ -1,21 +1,99 @@
-# CRS Linter
+# 🛡️ CRS Linter
 
-Welcome to the CRS Linter documentation.
+> A powerful linting tool for OWASP CRS configs
 
-## Prerequisites
+The CRS Linter helps maintain code quality and consistency across your rule configurations by automatically checking for common issues, style violations, and best practices.
 
-To run this tool, you need Python 3.7 or later.
+---
 
-:warning: To be released as pypi package!
+## 📋 Table of Contents
 
-To install, run:
-```
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Command Line Arguments](#-command-line-arguments)
+- [Output Formats](#-output-formats)
+- [Linting Rules Reference](#-linting-rules-reference)
+
+---
+
+## 🔧 Prerequisites
+
+**Python 3.7+** is required to run this tool.
+
+---
+
+## 📦 Installation
+
+Install using PyPi:
+
+```bash
 pip3 install crs-linter
 ```
 
-## How does it work
+---
 
-The script expects multiple arguments to work correctly. For the complete list of possible arguments, please run the script without any argument. You will see output similar to the following:
+## 🚀 Quick Start
+
+The basic usage requires three main arguments:
+
+```bash
+crs-linter \
+  -d /path/to/coreruleset \
+  -r crs-setup.conf.example \
+  -r 'rules/*.conf' \
+  -t util/APPROVED_TAGS
+```
+
+### Complete Example
+
+Here's a full example with all recommended options (run from the `coreruleset` directory):
+
+```bash
+../crs-linter/src/crs_linter/cli.py \
+  --debug \
+  -r crs-setup.conf.example \
+  -r 'rules/*.conf' \
+  -t util/APPROVED_TAGS \
+  -f ../crs-linter/FILENAME_EXCLUSIONS \
+  -v "4.13.0-dev"
+```
+
+---
+
+## ⚙️ Command Line Arguments
+
+### Required Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `-d, --directory` | Path to the CRS git repository (required if version is not provided) |
+| `-r, --rules` | CRS rules file(s) to check (can be used multiple times). Supports glob patterns like `'rules/*.conf'` |
+| `-t, --tags-list` | Path to the approved tags file. Tags not in this file will trigger validation errors |
+
+### Optional Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `-h, --help` | Show usage information and exit |
+| `-o, --output` | Output format: `native` (default) or `github` |
+| `--debug` | Enable debug information output |
+| `-v, --version` | CRS version string (auto-detected if not provided) |
+| `-f, --filename-tags-exclusions` | Path to file containing filenames exempt from filename tag checks |
+| `-T, --tests` | Path to test files directory |
+| `-E, --filename-tests-exclusions` | Path to file with rule ID prefixes excluded from test coverage checks |
+| `--head-ref` | Git HEAD ref from CI pipeline (helps determine version) |
+| `--commit-message` | PR commit message from CI (helps determine version for release commits) |
+
+### Getting Help
+
+To see all available options:
+
+```bash
+crs-linter -h
+```
+
+Example output:
 
 ```bash
 usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [--head-ref HEAD_REF] [--commit-message COMMIT_MESSAGE]
@@ -23,629 +101,427 @@ usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES 
 crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
 ```
 
-#### Arguments overview
-
-* `-h` - shows usage information and exits
-* `-o` - output format, either `native` (default) or `github`. Note, that `github` format follows the suggestions from the [GitHub docs](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message)
-* `-d` - directory path to CRS git repository. This is required if you don't add the version.
-* `--debug` - show debug information
-* `-r` - CRS rules file to check, can be used multiple times, eg `-r ../path/to/crs-setup.conf -r "../path/to/rules/*.conf"`
-* `-t` - path to file which contains the list of approved tags; tags not listed in this file will be considered check failures when found on a rule
-* `-v` - CRS version, optional (the linter will try to be smart and figure the version out by itself, which may fail)
-* `-f` - path to the file containing the list of files that do not need to be checked for filename tags, optional
-* `--head-ref` - Pass head ref from CI pipeline in order to determine the version to check against, optional
-* `--commit-message` - Pass PR commit message from CI pipeline in order to determine the version to check against (for release commits)
-
-First, an attempt is made to parse each file specified on the command line. This is a "pre-check", and runs on all files before the other tests.
-  * **Parsing check** - try to parse the structure, this is a syntax check
-    **note**: this script is a bit more strict than mod_security. There are some cases, where mod_security allows the syntax, but [msc_pyparser](https://github.com/digitalwave/msc_pyparser/) not.
-
-Second, the script loops over each of the parsed structures. Each iteration consists of the following steps:
-  * **Casing check** - checks operators, actions, transformations and ctl names for proper casing
-    e.g., `@beginsWith` is allowed, `@beginswith` is not. In this step, the script also ensures that an operator is present, eg `SecRule ARGS "^.*"` isn't allowed without `@rx` operator.
-  * **Action order check** - This step verifies that actions are specified in the correct order - [see the wiki](https://github.com/coreruleset/coreruleset/wiki/Order-of-ModSecurity-Actions-in-CRS-rules)
-  * **Format check** CRS has a good reference for [indentation](https://github.com/coreruleset/coreruleset/blob/v3.4/dev/CONTRIBUTING.md#general-formatting-guidelines-for-rules-contributions) and other formatting. `msc_pyparser` follows these rules when it creates the config file(s) from parsed structure(s). After the re-build is done, it runs a compare between the original file and the built one with help of `difflib`. The script reports all non-compliant formatting.
-  **Note**, that `difflib` is a part of the standard Python library, you don't need to install it.
-  * **Deprecation check** - This step checks for use of deprecated features. The following features are deprecated:
-    * `ctl:auditLogParts` [is no longer supported by CRS](https://github.com/coreruleset/coreruleset/pull/3090)
-  * **Duplicate ID's check** - This step checks that each rule has a unique ID.
-  * **paranoia-level/N tag and its value** - This step checks that the `paranoia-level/N` tag is present when required and whether it has the correct value `N` for its context. Specifically:
-    * if a rule is activated for a specific paranoia level `L` and does not have the `nolog` action, the `paranoia-level/N` tag **must** be set and the value of `N` **must** be `L`
-    * if a rule is activated outside of any paranoia level, or has the `nolog` action, the `paranoia-level/N` tag **must not** be set
- * **Anomaly scoring check** - This step checks that rules are configured properly for the anomaly scoring mechanism:
-    * every rule must update the correct scoring variable with the correct severity related score, for example: `setvar:inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}`
-    * every rule must update the correct scoring variable with the correct severity related score, for example: `setvar:inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}`
- * **Initialization of used transaction (TX) variables** - all used TX variables **must** be initialised before their first use. Using a TX variable means one of the following:
-    * the variable is a target of a rule, e.g., `SecRule TX.foo ...`
-    * the variable is an operator argument, eg `SecRule ARGS "@rx %{TX.foo}"...`
-    * the variable is a right hand side operand in a `setvar` action, eg `setvar:tx.bar=%{tx.foo}`
-    * the variable is in an expansion, e.g., as part of the value of a `msg` action: `msg:'Current value of variable: %{tx.foo}`
-* **Check rule tags** - only tags listed in `util/APPROVED_TAGS` may be used as tags in rules
-    * to use a new tag on a rule, it **must** first be registered in the util/APPROVED_TAGS file
-* **Check t:lowercase and (?i) flag** - No combination of t:lowercase and (?i) should appear in the same rule.
-* **Check rule has a tag with value `OWASP_CRS`** - Every rule must have a tag with value `OWASP_CRS`; every non-administrative rule must have a tag with value `OWASP_CRS/$filename$`. You can pass a file with a list of files which should be excluded from this check using the  `-f` flag. See `crs_linter/FILENAME_EXCLUSIONS` for an example of such a file.
-* **Check rule has a `ver` action with correct version** - Every rule must have `ver` action with correct value
-    * script accepts `-v` or `--version` argument if you want to pass it manually
-    * if no `-v` was given, the script tries to extract the version from result of `git describe --tags` (see `--head-ref`)
-* **Check if the rule uses any `TX:N` target in a chained rule then there must be a `capture` action** - Consider the rule is a chained rule and not the first rule uses the `TX:1` target
-    * this means we want to check the previously rule's result
-    * which is produced by `capture`
-    * if there is no previously `capture`, then it means the next `TX:1` will uses a previously produced captured value
-
-
-Finally, the script prints a report of all unused TX variables. Usually, unused TX variables occur when a rule creates a TX variable (e.g., `setvar:tx.foo=1`) but the value of the variable is never used anywhere else. This will only be revealed after the script has checked all rules.
-
-
-If script finds any parser error, it stops immediately. In case of other error, shows it (rule-by-rule). Finally, the script returns a non-zero value.
-
-If everything is fine, rule returns with 0.
-
-Normally, you will run the script (from `coreruleset` directory) like this:
-
-```bash
-../crs-linter/src/crs_linter/cli.py \
-  --debug \
-  -r crs-setup.conf.example \
-  -r 'rules/*.conf' \
-  -t util/APPROVED_TAGS \
-  -f ../crs-linter/FILENAME_EXCLUSIONS \
-  -v "4.13.0-dev"
-```
-
-Optionally, you can add the option `--output=github` (default value is `native`):
-
-```bash
-../crs-linter/src/crs_linter/cli.py \
-  --debug \
-  --output=github \
-  -r crs-setup.conf.example \
-  -r 'rules/*.conf' \
-  -t util/APPROVED_TAGS \
-  -f ../crs-linter/FILENAME_EXCLUSIONS \
-  -v "4.13.0-dev"
-```
-
-In this case, each line will have a prefix, which could be `::debug` or `::error`. See [this](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-error-message).
-
-Examples
-========
-
-To run these samples, see the files in `examples` directory.
-
-### Test 1 - syntax check
-
-```
-SecRule &ARGS_GET "@eq 3" \
-    "id:1,\
-    phase:2,\
-    pass,\
-    t:none,\
-    nolog,\
-    chain
-    SecRule ARGS_GET:foo "@rx bar" \
-        "t:none,t:urlDecodeUni,t:lowercase,\
-        setvar:'tx.some_vars=1'
-```
-
-As you can see, there are two `"` missing above: the first one after the `chain`, and the other one from the end of the chained rule. Mod_security allows this, but this isn't well formed. (See [#2184](https://github.com/coreruleset/coreruleset/pull/2184))
-
-Check it:
-
-```
-crs-linter -r examples/test1.conf
-Config file: examples/test1.conf
-Can't parse config file: examples/test1.conf
-  file=examples/test1.conf, line=8, endLine=8, title=Parser error: can't parse file
-$ echo $?
-1
-```
-
-### Test 2 - case sensitive test
-
-```
-SecRule REQUEST_URI "@beginswith /index.php" \
-    "id:1,\
-    phase:1,\
-    deny,\
-    t:none,\
-    nolog"
-```
-
-In this rule the operator is lowercase. Mod_security allows both form.
-
-```
-crs-linter -r examples/test2.conf
-Config file: examples/test2.conf
- Parsing ok.
- Ignore case check found error(s)
-  file=examples/test2.conf, line=1, endLine=1, title=Case check: Operator case mismatch: @beginswith (rule: 1)
- Action order check ok.
- Indentation check ok.
-$ echo $?
-1
-```
-
-### Test 3 - wrong action ordering
-
-```
-SecRule REQUEST_URI "@beginsWith /index.php" \
-    "phase:1,\
-    id:1,\
-    deny,\
-    t:none,\
-    nolog"
-```
-
-In this rule, the `phase` and `id` are interchanged. As [documentation](https://github.com/coreruleset/coreruleset/wiki/Order-of-ModSecurity-Actions-in-CRS-rules) says, the first action **must** be the `id`, the second one is the `phase`.
-
-```
-crs-linter -r examples/test3.conf
-Config file: examples/test3.conf
- Parsing ok.
- Ignore case check ok.
- Action order check found error(s)
-  file=examples/test3.conf, line=3, endLine=3, title=Action order check: action 'phase' at pos 0 is wrong place against 'id' at pos 1 (rule: 1)
- Indentation check ok.
-$ echo $?
-1
-```
-
-### Test 4 - wrong indentation
-
-```
- SecRule ARGS "@rx foo" \
-   "id:1,\
-    phase:1,\
-    pass,\
-    nolog"
-
-SecRule ARGS "@rx foo" \
-    "id:2,\
-    phase:1,\
-    pass,\
-    nolog"
-
-SecRule ARGS "@rx foo" \
-     "id:3,\
-    phase:1,\
-    pass,\
-    nolog"
-```
-
-In this rule set, the first line and the rule with `id:3` first action have an extra leading space. As [documentation](https://github.com/coreruleset/coreruleset/blob/v3.4/dev/CONTRIBUTING.md#general-formatting-guidelines-for-rules-contributions) describes, CRS has a strict indentation rules. The script checks the indentation with help of Python's [difflib](https://docs.python.org/3.9/library/difflib.html).
-
-```
-crs-linter -r examples/test4.conf
-Config file: examples/test4.conf
- Parsing ok.
- Ignore case check ok.
- Action order check ok.
- Indentation check found error(s)
 ---
-+++
-  file=examples/test4.conf, line=1, endLine=6, title=Indentation error: an indetation error has found
-@@ -1,5 +1,5 @@
-- SecRule ARGS "@rx foo" \
--   "id:1,\
-+SecRule ARGS "@rx foo" \
-+    "id:1,\
-     phase:1,\
-     pass,\
-     nolog"
-  file=examples/test4.conf, line=11, endLine=18, title=Indentation error: an indetation error has found
-@@ -11,7 +11,7 @@
-     nolog"
 
- SecRule ARGS "@rx foo" \
--     "id:3,\
-+    "id:3,\
-     phase:1,\
-     pass,\
-     nolog"
+## 📤 Output Formats
+
+### Native Format (Default)
+
+Standard human-readable output format:
+
+```bash
+crs-linter -d /path/to/crs -r 'rules/*.conf' -t util/APPROVED_TAGS
 ```
 
-### Test 5 - empty (implicit @rx) operator
+### GitHub Actions Format
 
-```
-SecRule REQUEST_URI "index.php" \
-    "phase:1,\
-    id:1,\
-    deny,\
-    t:none,\
-    nolog"
-```
+Specially formatted output for GitHub Actions workflows with `::debug` and `::error` prefixes:
 
-In this rule, the operator is missing. As [ModSecurity documentation](https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-(v2.x)#rx) says "the rules that do not explicitly specify an operator default to @rx". In CRS, this isn't allowed.
-
-```
-$ crs-linter -r examples/test5.conf
-Config file: examples/test5.conf
- Parsing ok.
- Ignore case check found error(s)
-  file=examples/test5.conf, line=1, endLine=1, title=Case check: Empty operator isn't allowed (rule: 1)
- Action order check ok.
- Indentation check ok.
-$ echo $?
-1
+```bash
+crs-linter \
+  --output=github \
+  -d /path/to/crs \
+  -r 'rules/*.conf' \
+  -t util/APPROVED_TAGS
 ```
 
-### Test 6 - check that rule does not contain 'ctl:auditLogParts'
+This format follows [GitHub's workflow commands specification](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message) for better CI/CD integration.
 
-```
-SecRule TX:sql_error_match "@eq 1" \
-    "id:1,\
-    phase:4,\
-    block,\
-    capture,\
-    t:none,\
-    ctl:auditLogParts=+E"
-```
+---
 
-The `ctl:auditLogParts=+E` (or any kind of `ctl:auditLogParts`) is not allowed in CRS.
+<!-- GENERATED_RULES_DOCS_START -->
+# 📖 Linting Rules Reference
 
-See the CRS PR [#3034](https://github.com/coreruleset/coreruleset/pull/3034)
+This section is automatically generated from the Python docstrings in `src/crs_linter/rules/`.
 
-```
-crs-linter -r util/crs-rules-check/examples/test6.conf
-Config file: util/crs-rules-check/examples/test6.conf
- Parsing ok.
- Ignore case check ok.
- Action order check ok.
- Indentation check ok.
- Found 'ctl:auditLogParts' action is in wrong place.
-  file=util/crs-rules-check/examples/test6.conf, line=7, endLine=7, title='ctl:auditLogParts' action in wrong place: action can only be placed in last part of a chained rule (rule: 1)
-$ echo $?
-1
-```
+> 💡 **To update this documentation**: Edit the docstrings in the rule class files and run `python generate_rules_docs.py`.
 
-### Test 7 - check duplicate id's
+## ApprovedTags
 
-```
-SecRule ARGS "@rx foo" \
-    "id:1001,\
-    phase:2,\
-    block,\
-    capture,\
-    t:none"
+**Source:** `src/crs_linter/rules/approved_tags.py`
 
-SecRule ARGS_NAMES "@rx bar" \
-    "id:1001,\
-    phase:2,\
-    block,\
-    capture,\
-    t:none"
-```
+Check that only tags from the util/APPROVED_TAGS file are used.
 
-In this rule file, there are two rules with same `id`.
+This rule verifies that all tags used in rules are registered in the
+util/APPROVED_TAGS file. Any tag not listed in this file will be
+considered a check failure.
 
-```
-crs-linter -r util/crs-rules-check/examples/test7.conf
-Config file: util/crs-rules-check/examples/test7.conf
- Parsing ok.
-Checking parsed rules...
-util/crs-rules-check/examples/test7.conf
- Ignore case check ok.
- Action order check ok.
- Indentation check ok.
- 'ctl:auditLogParts' actions are in right place.
- Found duplicated id('s)
-  file=util/crs-rules-check/examples/test7.conf, line=10, endLine=10, title='id' is duplicated: id 1001 is duplicated, previous place: util/crs-rules-check/examples/test7.conf:3
- paranoia-level tags are correct.
- PL anomaly_scores are correct.
- All TX variables are set
-End of checking parsed rules
-$ echo $?
-1
-```
+Example of a failing rule:
+    SecRule REQUEST_URI "@rx index.php" \
+        "id:1,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog,\
+        tag:attack-xss,\
+        tag:my-custom-tag"  # Fails if 'my-custom-tag' not in APPROVED_TAGS
 
-### Test 8 - paranoia-level consitency check
+To use a new tag on a rule, it must first be registered in the
+util/APPROVED_TAGS file.
 
-```
-SecRule &TX:blocking_paranoia_level "@eq 0" \
-    "id:901120,\
-    phase:1,\
-    pass,\
-    nolog,\
-    ver:'OWASP_CRS/4.0.0-rc1',\
-    setvar:'tx.blocking_paranoia_level=1'"
+## CheckCapture
 
-SecRule &TX:detection_paranoia_level "@eq 0" \
-    "id:901125,\
-    phase:1,\
-    pass,\
-    nolog,\
-    ver:'OWASP_CRS/4.0.0-rc1',\
-    setvar:'tx.detection_paranoia_level=%{TX.blocking_paranoia_level}'"
+**Source:** `src/crs_linter/rules/check_capture.py`
 
-SecRule &TX:error_anomaly_score "@eq 0" \
-    "id:901141,\
-    phase:1,\
-    pass,\
-    nolog,\
-    ver:'OWASP_CRS/4.0.0-rc1',\
-    setvar:'tx.error_anomaly_score=4'"
+Check that every chained rule has a `capture` action if it uses TX.N variable.
 
-SecRule TX:DETECTION_PARANOIA_LEVEL "@lt 1" "id:920011,phase:1,pass,nolog,skipAfter:END-REQUEST-920-PROTOCOL-ENFORCEMENT"
-SecRule TX:DETECTION_PARANOIA_LEVEL "@lt 1" "id:920012,phase:2,pass,nolog,skipAfter:END-REQUEST-920-PROTOCOL-ENFORCEMENT"
+This rule ensures that chained rules using captured transaction variables
+(TX:0, TX:1, TX:2, etc.) have a corresponding `capture` action in a
+previous rule in the chain.
 
-SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
-    "id:920160,\
-    phase:1,\
-    block,\
-    t:none,\
-    tag:'paranoia-level/2',\
-    severity:'CRITICAL',\
-    setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+Example of a passing rule:
+    SecRule ARGS "@rx attack" \
+        "id:2,\
+        phase:2,\
+        deny,\
+        capture,\
+        t:none,\
+        nolog,\
+        chain"
+        SecRule TX:1 "@eq attack"
 
-SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
-    "id:920161,\
-    phase:1,\
-    block,\
-    t:none,\
-    tag:'paranoia-level/1',\
-    setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+Example of a failing rule (missing capture):
+    SecRule ARGS "@rx attack" \
+        "id:3,\
+        phase:2,\
+        deny,\
+        t:none,\
+        nolog,\
+        chain"
+        SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without prior capture
 
-SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
-    "id:920162,\
-    phase:1,\
-    block,\
-    t:none,\
-    tag:'paranoia-level/1',\
-    severity:'CRITICAL',\
-    setvar:'tx.inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}'"
+## CrsTag
 
-SecMarker "END-REQUEST-920-PROTOCOL-ENFORCEMENT"
+**Source:** `src/crs_linter/rules/crs_tag.py`
 
-```
+Check that every rule has a `tag:'OWASP_CRS'` action and a tag for its filename.
 
-In this rule file, there are more problems:
-* rule 920160 is activated on PL1, but the `tag` value is PL2
-* at rule 920160, the TX variable gets error_anomaly_score, but the severity is CRITICAL
-* at rule 920161 there is no severity action
-* rule 920162 increments anomaly_score_pl2, but it's in PL1
+This rule verifies that:
+1. Every rule has a tag with value 'OWASP_CRS'
+2. Every non-administrative rule has a tag with value 'OWASP_CRS/$filename$'
 
-```
-crs-linter -r examples/test8.conf
-Config file: examples/test8.conf
- Parsing ok.
-Checking parsed rules...
-examples/test8.conf
- Ignore case check ok.
- Action order check ok.
- Indentation check ok.
- 'ctl:auditLogParts' actions are in right place.
- no duplicate id's
- Found incorrect paranoia-level/N tag(s)
-  file=examples/test8.conf, line=34, endLine=34, title=wrong or missing paranoia-level/N tag: tag 'paranoia-level/2' on PL 1, rule id: 920160
- Found incorrect (inbound|outbout)_anomaly_score value(s)
-  file=examples/test8.conf, line=36, endLine=36, title=wrong (inbound|outbout)_anomaly_score variable or value: invalid value for anomaly_score_pl1: tx.error_anomaly_score with severity critical, rule id: 920160
-  file=examples/test8.conf, line=44, endLine=44, title=wrong (inbound|outbout)_anomaly_score variable or value: missing severity action, rule id: 920161
-  file=examples/test8.conf, line=53, endLine=53, title=wrong (inbound|outbout)_anomaly_score variable or value: variable inbound_anomaly_score_pl2 on PL 1, rule id: 920162
- There are one or more unset TX variables.
-  file=examples/test8.conf, line=53, endLine=53, title=unset TX variable: TX variable 'critical_anomaly_score' not set / later set (rvar) in rule 920162
-End of checking parsed rules
-Cumulated report about unused TX variables
- No unused TX variable
-$ echo $?
-1
-```
+Example of a failing rule (missing OWASP_CRS tag):
+    SecRule REQUEST_URI "@rx index.php" \
+        "id:1,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog,\
+        tag:attack-xss"  # Fails: missing tag:OWASP_CRS
 
-### Test 9 - check state of used TX variables
+Example of a passing rule:
+    SecRule REQUEST_URI "@rx index.php" \
+        "id:1,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog,\
+        tag:OWASP_CRS,\
+        tag:OWASP_CRS/test11"
 
+Files can be excluded from filename tag checking using the -f flag with
+a list of excluded files (see FILENAME_EXCLUSIONS for an example).
 
-```
-SecRule TX:foo "@rx bar" \
-    "id:1001,\
-    phase:1,\
-    pass,\
-    nolog"
+## Deprecated
 
-SecRule ARGS "@rx ^.*$" \
-    "id:1002,\
-    phase:1,\
-    pass,\
-    nolog,\
-    setvar:tx.bar=1"
-```
+**Source:** `src/crs_linter/rules/deprecated.py`
 
-In this rule file, there are more problems:
-* rule 1001 used an uninitialized variable (`TX:foo`)
-* rule 1002 sets a TX variable which never used
+Check for deprecated patterns in rules.
 
-### Test 10 - combination of t:lowercase and (?i) in the same rule
+This is a general-purpose rule for checking deprecated patterns that may be
+removed in future CRS versions. Currently checks for ctl:auditLogParts.
 
+Example of a failing rule (using deprecated ctl:auditLogParts):
+    SecRule TX:sql_error_match "@eq 1" \
+        "id:1,\
+        phase:4,\
+        block,\
+        capture,\
+        t:none,\
+        ctl:auditLogParts=+E"  # Fails: ctl:auditLogParts is deprecated
 
-```
-SecRule ARGS "@rx (?i)foo" \
-    "id:1,\
-    phase:1,\
-    pass,\
-    t:lowercase,\
-    nolog"
-```
+The ctl:auditLogParts action is no longer supported in CRS (see PR #3034).
 
-Rule 1 uses a combination of t:lowercase and the (?i) in the regex
+Note: This overlaps with ctl_audit_log.py which checks the same pattern but
+treats it as "not allowed" rather than "deprecated". Consider consolidating
+these rules if they serve the same purpose.
 
-```
-crs-linter -r examples/test10.conf
-Config file: examples/test10.conf
- Parsing ok.
-Checking parsed rules...
-examples/test10.conf
- Ignore case check ok.
- Action order check ok.
- Indentation check ok.
- no 'ctl:auditLogParts' action found.
- no duplicate id's
- paranoia-level tags are correct.
- PL anomaly_scores are correct.
- All TX variables are set.
- No new tags added.
- There are one or more combinations of t:lowercase and (?i) flag.
-  file=examples/test10.conf, line=5, endLine=5, title=t:lowercase and (?i): rule uses (?i) in combination with t:lowercase: 'lowercase'; rule id: 1
-End of checking parsed rules
-Cumulated report about unused TX variables
- No unused TX variable
-```
+## DuplicatedIds
 
-### Test 11 - Check rule has a tag with value OWASP_CRS
+**Source:** `src/crs_linter/rules/duplicated.py`
 
+Check for duplicated rule IDs.
 
-```
-# no tag with OWASP_CRS
-SecRule REQUEST_URI "@rx index.php" \
-    "id:1,\
-    phase:1,\
-    deny,\
-    t:none,\
-    nolog,\
-    tag:attack-xss"
-```
+This rule ensures that each rule has a unique ID across all configuration
+files in the ruleset.
 
-Rule 1 does not have `tag:OWASP_CRS` nor `t:OWASP_CRS/test11`
+Example of failing rules (duplicate IDs):
+    SecRule ARGS "@rx foo" \
+        "id:1001,\
+        phase:2,\
+        block,\
+        capture,\
+        t:none"
 
-```
-crs-linter -r examples/test11.conf -t ../APPROVED_TAGS
-Config file: examples/test11.conf
- Parsing ok.
-Checking parsed rules...
-examples/test11.conf
- Ignore case check ok.
- Action order check ok.
- Indentation check ok.
- no 'ctl:auditLogParts' action found.
- no duplicate id's
- paranoia-level tags are correct.
- PL anomaly_scores are correct.
- All TX variables are set.
- No new tags added.
- No t:lowercase and (?i) flag used.
- There are one or more rules without OWASP_CRS tag.
-  file=examples/test11.conf, line=8, endLine=8, title=tag:OWASP_CRS is missing: rule does not have tag with value 'OWASP_CRS' nor 'OWASP_CRS/test11'; rule id: 1
- There are one or more rules without ver action.
-  file=examples/test11.conf, line=8, endLine=8, title=ver is missing / incorrect: rule does not have 'ver' action; rule id: 1
-End of checking parsed rules
-Cumulated report about unused TX variables
- No unused TX variable
-```
+    SecRule ARGS_NAMES "@rx bar" \
+        "id:1001,\  # Fails: ID 1001 is already used above
+        phase:2,\
+        block,\
+        capture,\
+        t:none"
 
-### Test 12 - Check rule has a ver action with correct version
+## IgnoreCase
 
+**Source:** `src/crs_linter/rules/ignore_case.py`
 
-```
-# no 'ver' action
-SecRule REQUEST_URI "@rx index.php" \
-    "id:1,\
-    phase:1,\
-    deny,\
-    t:none,\
-    nolog,\
-    tag:OWASP_CRS"
+Check the ignore cases at operators, actions, transformations and ctl arguments.
 
-# 'ver' action has invalid value
-SecRule REQUEST_URI "@rx index.php" \
-    "id:1,\
-    phase:1,\
-    deny,\
-    t:none,\
-    nolog,\
-    tag:OWASP_CRS,\
-    ver:OWASP_CRS/1.0.0-dev"
-```
+This rule verifies that operators, actions, transformations, and ctl
+arguments use the proper case-sensitive format. CRS requires specific
+casing for these elements even though ModSecurity itself may be case-
+insensitive. This rule also ensures that an operator is explicitly
+specified.
 
-Rule 1 does not have `ver`.
-Rule 2 has incorrect `ver` value.
+Example of a failing rule (incorrect operator case):
+    SecRule REQUEST_URI "@beginswith /index.php" \
+        "id:1,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog"  # Fails: @beginswith should be @beginsWith
 
-```
-crs-linter -r examples/test12.conf -t ../APPROVED_TAGS
-Config file: examples/test12.conf
- Parsing ok.
-Checking parsed rules...
-examples/test12.conf
- Ignore case check ok.
- Action order check ok.
- Indentation check ok.
- no 'ctl:auditLogParts' action found.
- no duplicate id's
- paranoia-level tags are correct.
- PL anomaly_scores are correct.
- All TX variables are set.
- No new tags added.
- No t:lowercase and (?i) flag used.
- No rule without OWASP_CRS tag.
- There are one or more rules without ver action.
-  file=examples/test12.conf, line=8, endLine=8, title=ver is missing / incorrect: rule does not have 'ver' action; rule id: 1
-  file=examples/test12.conf, line=18, endLine=18, title=ver is missing / incorrect: rule's 'ver' action has incorrect value; rule id: 2, version: 'OWASP_CRS/1.0.0-dev', expected: 'OWASP_CRS/4.6.0-dev'
-End of checking parsed rules
-Cumulated report about unused TX variables
- No unused TX variable
-```
+Example of a failing rule (missing operator):
+    SecRule REQUEST_URI "index.php" \
+        "id:1,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog"  # Fails: empty operator isn't allowed, must use @rx
 
-### Test 13 - Check if a chained rule uses `TX:1` target then it has a previously `capture` action
+ModSecurity defaults to @rx when no operator is specified, but CRS
+requires explicit operators for clarity.
 
+## Indentation
 
-```
-# no need 'capture' action because the TX:1, but there is no chain action
-SecRule ARGS "@rx TX:1" \
-    "id:1,\
-    phase:2,\
-    deny,\
-    t:none,\
-    nolog,\
-    tag:OWASP_CRS,\
-    ver:'OWASP_CRS/4.7.0-dev'"
+**Source:** `src/crs_linter/rules/indentation.py`
 
-# normal use
-SecRule ARGS "@rx attack" \
-    "id:2,\
-    phase:2,\
-    deny,\
-    capture,\
-    t:none,\
-    nolog,\
-    tag:OWASP_CRS,\
-    ver:'OWASP_CRS/4.7.0-dev',\
-    chain"
-    SecRule TX:1 "@eq attack"
+Check for indentation errors in rules.
 
-# invalid use
-SecRule ARGS "@rx attack" \
-    "id:3,\
-    phase:2,\
-    deny,\
-    t:none,\
-    nolog,\
-    tag:OWASP_CRS,\
-    ver:'OWASP_CRS/4.7.0-dev',\
-    chain"
-    SecRule TX:0 "@eq attack"
-```
+This rule verifies that rule files follow CRS formatting guidelines for
+indentation and whitespace. The linter uses msc_pyparser to regenerate
+the formatted version of each file and compares it with the original
+using difflib to detect any formatting discrepancies.
 
-Rule 1 is a "regular" rule, it can use `TX:1` without any restriction.
-Rule 2 is the valid form.
-Rule 3 is a chained rule and it uses `TX:0` in second rule, but first rule does not have `capture`.
+Example of failing rules (incorrect indentation):
+     SecRule ARGS "@rx foo" \  # Extra leading space
+       "id:1,\  # Wrong indentation (should be 4 spaces)
+        phase:1,\
+        pass,\
+        nolog"
 
-```
-crs-linter -r examples/test13.conf -t ../APPROVED_TAGS -v "4.7.0-dev"
-Config file: examples/test13.conf
- Parsing ok.
-Checking parsed rules...
-examples/test13.conf
- Ignore case check ok.
- Action order check ok.
- Indentation check ok.
- no 'ctl:auditLogParts' action found.
- no duplicate id's
- paranoia-level tags are correct.
- PL anomaly_scores are correct.
- All TX variables are set.
- No new tags added.
- No t:lowercase and (?i) flag used.
- No rule without OWASP_CRS tag.
- No rule without correct ver action.
- There are one or more rules using TX.N without capture action.
-  file=examples/test13.conf, line=34, endLine=34, title=capture is missing: rule uses TX.N without capture; rule id: 3'
-End of checking parsed rules
-Cumulated report about unused TX variables
- No unused TX variable
-```
+    SecRule ARGS "@rx foo" \
+         "id:3,\  # Extra leading space
+        phase:1,\
+        pass,\
+        nolog"
+
+Example of correct indentation:
+    SecRule ARGS "@rx foo" \
+        "id:2,\
+        phase:1,\
+        pass,\
+        nolog"
+
+## LowercaseIgnorecase
+
+**Source:** `src/crs_linter/rules/lowercase_ignorecase.py`
+
+Check for combined transformation and ignorecase patterns.
+
+This rule detects when rules use both the t:lowercase transformation and
+the (?i) case-insensitive regex flag together. This combination is
+redundant and should be avoided - use one or the other.
+
+Example of a failing rule (combining t:lowercase and (?i)):
+    SecRule ARGS "@rx (?i)foo" \
+        "id:1,\
+        phase:1,\
+        pass,\
+        t:lowercase,\  # Fails: redundant with (?i) flag
+        nolog"
+
+The rule should use either:
+- t:lowercase with a case-sensitive regex: "@rx foo"
+- (?i) flag without t:lowercase transformation
+
+## OrderedActions
+
+**Source:** `src/crs_linter/rules/ordered_actions.py`
+
+Check that actions are in the correct order.
+
+This rule verifies that actions in rules follow the CRS-specified order.
+The first action must be 'id', followed by 'phase', and then other
+actions in their designated order.
+
+Example of a failing rule (wrong action order):
+    SecRule REQUEST_URI "@beginsWith /index.php" \
+        "phase:1,\  # Wrong: phase should come after id
+        id:1,\
+        deny,\
+        t:none,\
+        nolog"
+
+Example of a correct rule:
+    SecRule REQUEST_URI "@beginsWith /index.php" \
+        "id:1,\  # Correct: id comes first
+        phase:1,\  # Correct: phase comes second
+        deny,\
+        t:none,\
+        nolog"
+
+## PlConsistency
+
+**Source:** `src/crs_linter/rules/pl_consistency.py`
+
+Check the paranoia-level consistency.
+
+This rule verifies that rules activated for a specific paranoia level (PL)
+have consistent tags and anomaly scoring variables. It checks:
+
+1. Rules on PL N must have tag 'paranoia-level/N'
+2. Rules must not have paranoia-level tag if they have 'nolog' action
+3. Anomaly score variables must match the current PL (e.g., pl1 for PL1)
+4. Severity must match the anomaly score variable being set
+5. Rules must have severity action when setting anomaly scores
+
+Example of failing rules:
+    # Rule activated on PL1 but tagged as PL2
+    SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
+        "id:920160,\
+        phase:1,\
+        block,\
+        t:none,\
+        tag:'paranoia-level/2',\  # Wrong: should be paranoia-level/1
+        severity:'CRITICAL',\
+        setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+        # Also wrong: severity CRITICAL but using error_anomaly_score
+
+    # Rule missing severity action
+    SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
+        "id:920161,\
+        phase:1,\
+        block,\
+        t:none,\
+        tag:'paranoia-level/1',\
+        setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+        # Missing severity action
+
+    # Rule setting wrong PL variable
+    SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
+        "id:920162,\
+        phase:1,\
+        block,\
+        t:none,\
+        tag:'paranoia-level/1',\
+        severity:'CRITICAL',\
+        setvar:'tx.inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}'"
+        # Wrong: using pl2 variable on PL1
+
+## RuleTests
+
+**Source:** `src/crs_linter/rules/rule_tests.py`
+
+Check that rules have corresponding test cases.
+
+This rule verifies that each rule has at least one corresponding test
+case in the test suite. Rules without tests are flagged to ensure
+adequate test coverage.
+
+The check skips:
+- Paranoia level control rules (rule IDs with last two digits < 100)
+- Rules in the exclusion list (configured via -E flag)
+
+Example of a failing rule (no corresponding tests):
+    SecRule REQUEST_URI "@rx malicious" \
+        "id:942100,\  # Fails if no test case references rule 942100
+        phase:2,\
+        block,\
+        t:none,\
+        tag:OWASP_CRS"
+
+To fix: Add a test case to your test suite that exercises this rule.
+
+Use the -E flag to provide a file with rule ID prefixes that should be
+excluded from this check.
+
+## VariablesUsage
+
+**Source:** `src/crs_linter/rules/variables_usage.py`
+
+Check if a used TX variable has been set.
+
+This rule ensures that all TX variables are initialized before they are
+used. A variable is considered "used" when it appears:
+- As a target in a rule (e.g., SecRule TX:foo ...)
+- In an operator argument (e.g., @rx %{TX.foo})
+- As a right-hand side value in setvar (e.g., setvar:tx.bar=%{tx.foo})
+- In an expansion (e.g., msg:'Value: %{tx.foo}')
+
+Example of failing rules (uninitialized variable):
+    SecRule TX:foo "@rx bar" \
+        "id:1001,\
+        phase:1,\
+        pass,\
+        nolog"  # Fails: TX:foo used but never set
+
+    SecRule ARGS "@rx ^.*$" \
+        "id:1002,\
+        phase:1,\
+        pass,\
+        nolog,\
+        setvar:tx.bar=1"  # Warning: tx.bar set but never used
+
+The linter also reports unused TX variables - variables that are set but
+never referenced anywhere in the ruleset.
+
+## Version
+
+**Source:** `src/crs_linter/rules/version.py`
+
+Check that every rule has a `ver` action with the correct version.
+
+This rule verifies that all rules have a 'ver' action with the correct
+CRS version string. The version can be specified manually using the -v
+flag, or automatically extracted from git tags using 'git describe --tags'.
+
+Example of failing rules:
+    # Missing 'ver' action
+    SecRule REQUEST_URI "@rx index.php" \
+        "id:1,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog,\
+        tag:OWASP_CRS"  # Fails: no ver action
+
+    # Incorrect 'ver' value
+    SecRule REQUEST_URI "@rx index.php" \
+        "id:2,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog,\
+        tag:OWASP_CRS,\
+        ver:OWASP_CRS/1.0.0-dev"  # Fails if expected version is 4.6.0-dev
+
+Example of a correct rule:
+    SecRule REQUEST_URI "@rx index.php" \
+        "id:3,\
+        phase:1,\
+        deny,\
+        t:none,\
+        nolog,\
+        tag:OWASP_CRS,\
+        ver:'OWASP_CRS/4.6.0-dev'"
+<!-- GENERATED_RULES_DOCS_END -->

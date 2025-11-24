@@ -4,7 +4,26 @@ from crs_linter.rule import Rule
 
 
 class DuplicatedIds(Rule):
-    """Check for duplicated rule IDs."""
+    """Check for duplicated rule IDs.
+
+    This rule ensures that each rule has a unique ID across all configuration
+    files in the ruleset.
+
+    Example of failing rules (duplicate IDs):
+        SecRule ARGS "@rx foo" \\
+            "id:1001,\\
+            phase:2,\\
+            block,\\
+            capture,\\
+            t:none"
+
+        SecRule ARGS_NAMES "@rx bar" \\
+            "id:1001,\\  # Fails: ID 1001 is already used above
+            phase:2,\\
+            block,\\
+            capture,\\
+            t:none"
+    """
 
     def __init__(self):
         super().__init__()

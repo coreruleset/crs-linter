@@ -4,7 +4,29 @@ from crs_linter.utils import get_id
 
 
 class RuleTests(Rule):
-    """Check that rules have corresponding test cases."""
+    """Check that rules have corresponding test cases.
+
+    This rule verifies that each rule has at least one corresponding test
+    case in the test suite. Rules without tests are flagged to ensure
+    adequate test coverage.
+
+    The check skips:
+    - Paranoia level control rules (rule IDs with last two digits < 100)
+    - Rules in the exclusion list (configured via -E flag)
+
+    Example of a failing rule (no corresponding tests):
+        SecRule REQUEST_URI "@rx malicious" \\
+            "id:942100,\\  # Fails if no test case references rule 942100
+            phase:2,\\
+            block,\\
+            t:none,\\
+            tag:OWASP_CRS"
+
+    To fix: Add a test case to your test suite that exercises this rule.
+
+    Use the -E flag to provide a file with rule ID prefixes that should be
+    excluded from this check.
+    """
 
     def __init__(self):
         super().__init__()

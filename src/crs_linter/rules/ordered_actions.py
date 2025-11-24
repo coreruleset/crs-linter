@@ -41,7 +41,28 @@ ACTIONS_ORDER = [
 
 
 class OrderedActions(Rule):
-    """Check that actions are in the correct order."""
+    """Check that actions are in the correct order.
+
+    This rule verifies that actions in rules follow the CRS-specified order.
+    The first action must be 'id', followed by 'phase', and then other
+    actions in their designated order.
+
+    Example of a failing rule (wrong action order):
+        SecRule REQUEST_URI "@beginsWith /index.php" \\
+            "phase:1,\\  # Wrong: phase should come after id
+            id:1,\\
+            deny,\\
+            t:none,\\
+            nolog"
+
+    Example of a correct rule:
+        SecRule REQUEST_URI "@beginsWith /index.php" \\
+            "id:1,\\  # Correct: id comes first
+            phase:1,\\  # Correct: phase comes second
+            deny,\\
+            t:none,\\
+            nolog"
+    """
 
     def __init__(self):
         super().__init__()

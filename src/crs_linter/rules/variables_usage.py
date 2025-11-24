@@ -4,7 +4,32 @@ from crs_linter.rule import Rule
 
 
 class VariablesUsage(Rule):
-    """Check if a used TX variable has been set."""
+    """Check if a used TX variable has been set.
+
+    This rule ensures that all TX variables are initialized before they are
+    used. A variable is considered "used" when it appears:
+    - As a target in a rule (e.g., SecRule TX:foo ...)
+    - In an operator argument (e.g., @rx %{TX.foo})
+    - As a right-hand side value in setvar (e.g., setvar:tx.bar=%{tx.foo})
+    - In an expansion (e.g., msg:'Value: %{tx.foo}')
+
+    Example of failing rules (uninitialized variable):
+        SecRule TX:foo "@rx bar" \\
+            "id:1001,\\
+            phase:1,\\
+            pass,\\
+            nolog"  # Fails: TX:foo used but never set
+
+        SecRule ARGS "@rx ^.*$" \\
+            "id:1002,\\
+            phase:1,\\
+            pass,\\
+            nolog,\\
+            setvar:tx.bar=1"  # Warning: tx.bar set but never used
+
+    The linter also reports unused TX variables - variables that are set but
+    never referenced anywhere in the ruleset.
+    """
 
     def __init__(self):
         super().__init__()
