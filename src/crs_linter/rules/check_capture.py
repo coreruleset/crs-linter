@@ -4,7 +4,33 @@ from crs_linter.rule import Rule
 
 
 class CheckCapture(Rule):
-    """Check that every chained rule has a `capture` action if it uses TX.N variable."""
+    """Check that every chained rule has a `capture` action if it uses TX.N variable.
+
+    This rule ensures that chained rules using captured transaction variables
+    (TX:0, TX:1, TX:2, etc.) have a corresponding `capture` action in a
+    previous rule in the chain.
+
+    Example of a passing rule:
+        SecRule ARGS "@rx attack" \\
+            "id:2,\\
+            phase:2,\\
+            deny,\\
+            capture,\\
+            t:none,\\
+            nolog,\\
+            chain"
+            SecRule TX:1 "@eq attack"
+
+    Example of a failing rule (missing capture):
+        SecRule ARGS "@rx attack" \\
+            "id:3,\\
+            phase:2,\\
+            deny,\\
+            t:none,\\
+            nolog,\\
+            chain"
+            SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without prior capture
+    """
 
     def __init__(self):
         super().__init__()

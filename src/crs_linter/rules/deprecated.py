@@ -4,10 +4,21 @@ from crs_linter.rule import Rule
 
 class Deprecated(Rule):
     """Check for deprecated patterns in rules.
-    
+
     This is a general-purpose rule for checking deprecated patterns that may be
     removed in future CRS versions. Currently checks for ctl:auditLogParts.
-    
+
+    Example of a failing rule (using deprecated ctl:auditLogParts):
+        SecRule TX:sql_error_match "@eq 1" \\
+            "id:1,\\
+            phase:4,\\
+            block,\\
+            capture,\\
+            t:none,\\
+            ctl:auditLogParts=+E"  # Fails: ctl:auditLogParts is deprecated
+
+    The ctl:auditLogParts action is no longer supported in CRS (see PR #3034).
+
     Note: This overlaps with ctl_audit_log.py which checks the same pattern but
     treats it as "not allowed" rather than "deprecated". Consider consolidating
     these rules if they serve the same purpose.

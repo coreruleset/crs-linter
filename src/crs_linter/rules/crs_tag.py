@@ -5,7 +5,34 @@ from crs_linter.rule import Rule
 
 
 class CrsTag(Rule):
-    """Check that every rule has a `tag:'OWASP_CRS'` action and a tag for its filename."""
+    """Check that every rule has a `tag:'OWASP_CRS'` action and a tag for its filename.
+
+    This rule verifies that:
+    1. Every rule has a tag with value 'OWASP_CRS'
+    2. Every non-administrative rule has a tag with value 'OWASP_CRS/$filename$'
+
+    Example of a failing rule (missing OWASP_CRS tag):
+        SecRule REQUEST_URI "@rx index.php" \\
+            "id:1,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog,\\
+            tag:attack-xss"  # Fails: missing tag:OWASP_CRS
+
+    Example of a passing rule:
+        SecRule REQUEST_URI "@rx index.php" \\
+            "id:1,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog,\\
+            tag:OWASP_CRS,\\
+            tag:OWASP_CRS/test11"
+
+    Files can be excluded from filename tag checking using the -f flag with
+    a list of excluded files (see FILENAME_EXCLUSIONS for an example).
+    """
 
     def __init__(self):
         super().__init__()

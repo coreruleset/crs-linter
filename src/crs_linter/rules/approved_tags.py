@@ -3,7 +3,25 @@ from crs_linter.rule import Rule
 
 
 class ApprovedTags(Rule):
-    """Check that only tags from the util/APPROVED_TAGS file are used."""
+    """Check that only tags from the util/APPROVED_TAGS file are used.
+
+    This rule verifies that all tags used in rules are registered in the
+    util/APPROVED_TAGS file. Any tag not listed in this file will be
+    considered a check failure.
+
+    Example of a failing rule:
+        SecRule REQUEST_URI "@rx index.php" \\
+            "id:1,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog,\\
+            tag:attack-xss,\\
+            tag:my-custom-tag"  # Fails if 'my-custom-tag' not in APPROVED_TAGS
+
+    To use a new tag on a rule, it must first be registered in the
+    util/APPROVED_TAGS file.
+    """
 
     def __init__(self):
         super().__init__()

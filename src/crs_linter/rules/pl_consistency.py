@@ -4,7 +4,50 @@ from crs_linter.rule import Rule
 
 
 class PlConsistency(Rule):
-    """Check the PL consistency."""
+    """Check the paranoia-level consistency.
+
+    This rule verifies that rules activated for a specific paranoia level (PL)
+    have consistent tags and anomaly scoring variables. It checks:
+
+    1. Rules on PL N must have tag 'paranoia-level/N'
+    2. Rules must not have paranoia-level tag if they have 'nolog' action
+    3. Anomaly score variables must match the current PL (e.g., pl1 for PL1)
+    4. Severity must match the anomaly score variable being set
+    5. Rules must have severity action when setting anomaly scores
+
+    Example of failing rules:
+        # Rule activated on PL1 but tagged as PL2
+        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\\
+            "id:920160,\\
+            phase:1,\\
+            block,\\
+            t:none,\\
+            tag:'paranoia-level/2',\\  # Wrong: should be paranoia-level/1
+            severity:'CRITICAL',\\
+            setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+            # Also wrong: severity CRITICAL but using error_anomaly_score
+
+        # Rule missing severity action
+        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\\
+            "id:920161,\\
+            phase:1,\\
+            block,\\
+            t:none,\\
+            tag:'paranoia-level/1',\\
+            setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+            # Missing severity action
+
+        # Rule setting wrong PL variable
+        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\\
+            "id:920162,\\
+            phase:1,\\
+            block,\\
+            t:none,\\
+            tag:'paranoia-level/1',\\
+            severity:'CRITICAL',\\
+            setvar:'tx.inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}'"
+            # Wrong: using pl2 variable on PL1
+    """
     
     def __init__(self):
         super().__init__()

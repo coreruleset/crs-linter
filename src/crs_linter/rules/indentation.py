@@ -6,7 +6,33 @@ from crs_linter.rule import Rule
 
 
 class Indentation(Rule):
-    """Check for indentation errors in rules."""
+    """Check for indentation errors in rules.
+
+    This rule verifies that rule files follow CRS formatting guidelines for
+    indentation and whitespace. The linter uses msc_pyparser to regenerate
+    the formatted version of each file and compares it with the original
+    using difflib to detect any formatting discrepancies.
+
+    Example of failing rules (incorrect indentation):
+         SecRule ARGS "@rx foo" \\  # Extra leading space
+           "id:1,\\  # Wrong indentation (should be 4 spaces)
+            phase:1,\\
+            pass,\\
+            nolog"
+
+        SecRule ARGS "@rx foo" \\
+             "id:3,\\  # Extra leading space
+            phase:1,\\
+            pass,\\
+            nolog"
+
+    Example of correct indentation:
+        SecRule ARGS "@rx foo" \\
+            "id:2,\\
+            phase:1,\\
+            pass,\\
+            nolog"
+    """
 
     def __init__(self):
         super().__init__()

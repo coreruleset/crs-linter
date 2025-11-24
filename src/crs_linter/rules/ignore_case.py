@@ -16,7 +16,33 @@ CTLSL = [c.lower() for c in CTLS]
 
 
 class IgnoreCase(Rule):
-    """Check the ignore cases at operators, actions, transformations and ctl arguments."""
+    """Check the ignore cases at operators, actions, transformations and ctl arguments.
+
+    This rule verifies that operators, actions, transformations, and ctl
+    arguments use the proper case-sensitive format. CRS requires specific
+    casing for these elements even though ModSecurity itself may be case-
+    insensitive. This rule also ensures that an operator is explicitly
+    specified.
+
+    Example of a failing rule (incorrect operator case):
+        SecRule REQUEST_URI "@beginswith /index.php" \\
+            "id:1,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog"  # Fails: @beginswith should be @beginsWith
+
+    Example of a failing rule (missing operator):
+        SecRule REQUEST_URI "index.php" \\
+            "id:1,\\
+            phase:1,\\
+            deny,\\
+            t:none,\\
+            nolog"  # Fails: empty operator isn't allowed, must use @rx
+
+    ModSecurity defaults to @rx when no operator is specified, but CRS
+    requires explicit operators for clarity.
+    """
 
     def __init__(self):
         super().__init__()

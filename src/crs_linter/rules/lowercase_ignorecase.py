@@ -3,7 +3,24 @@ from crs_linter.rule import Rule
 
 
 class LowercaseIgnorecase(Rule):
-    """Check for combined transformation and ignorecase patterns."""
+    """Check for combined transformation and ignorecase patterns.
+
+    This rule detects when rules use both the t:lowercase transformation and
+    the (?i) case-insensitive regex flag together. This combination is
+    redundant and should be avoided - use one or the other.
+
+    Example of a failing rule (combining t:lowercase and (?i)):
+        SecRule ARGS "@rx (?i)foo" \\
+            "id:1,\\
+            phase:1,\\
+            pass,\\
+            t:lowercase,\\  # Fails: redundant with (?i) flag
+            nolog"
+
+    The rule should use either:
+    - t:lowercase with a case-sensitive regex: "@rx foo"
+    - (?i) flag without t:lowercase transformation
+    """
 
     def __init__(self):
         super().__init__()
