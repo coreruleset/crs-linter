@@ -17,7 +17,7 @@ class PlConsistency(Rule):
 
     Example of failing rules:
         # Rule activated on PL1 but tagged as PL2
-        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\\
+        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\
             "id:920160,\\
             phase:1,\\
             block,\\
@@ -28,7 +28,7 @@ class PlConsistency(Rule):
             # Also wrong: severity CRITICAL but using error_anomaly_score
 
         # Rule missing severity action
-        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\\
+        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\
             "id:920161,\\
             phase:1,\\
             block,\\
@@ -38,7 +38,7 @@ class PlConsistency(Rule):
             # Missing severity action
 
         # Rule setting wrong PL variable
-        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\\
+        SecRule REQUEST_HEADERS:Content-Length "!@rx ^\\d+$" \\
             "id:920162,\\
             phase:1,\\
             block,\\
@@ -48,14 +48,14 @@ class PlConsistency(Rule):
             setvar:'tx.inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}'"
             # Wrong: using pl2 variable on PL1
     """
-    
+
     def __init__(self):
         super().__init__()
         self.success_message = "Paranoia-level tags are correct."
         self.error_message = "Found incorrect paranoia-level/N tag(s)"
         self.error_title = "wrong or missing paranoia-level/N tag"
         self.args = ("data", "globtxvars")
-    
+
     def check(self, data, globtxvars):
         """this method checks the PL consistency
 

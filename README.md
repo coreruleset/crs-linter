@@ -524,5 +524,4 @@ Example of a correct rule:
         nolog,\
         tag:OWASP_CRS,\
         ver:'OWASP_CRS/4.6.0-dev'"
-
 <!-- GENERATED_RULES_DOCS_END -->

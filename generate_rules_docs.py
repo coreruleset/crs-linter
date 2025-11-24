@@ -77,7 +77,7 @@ def format_rule_docs(docs: List[Dict[str, str]]) -> str:
 
     lines = ["# 📖 Linting Rules Reference\n"]
     lines.append("This section is automatically generated from the Python docstrings in `src/crs_linter/rules/`.\n")
-    lines.append("--> 💡 **To update this documentation**: Edit the docstrings in the rule class files and run `python generate_rules_docs.py`.\n")
+    lines.append("> 💡 **To update this documentation**: Edit the docstrings in the rule class files and run `python generate_rules_docs.py`.\n")
 
     for doc in docs:
         # Add rule name as heading
