@@ -167,12 +167,12 @@ util/APPROVED_TAGS file.
 
 **Source:** `src/crs_linter/rules/check_capture.py`
 
-Check that every chained rule has a `capture` action if it uses TX.N variable.
+Check that rules using TX.N variables have a corresponding `capture` action.
 
-This rule ensures that chained rules using captured transaction variables
-(TX:0, TX:1, TX:2, etc.) have a corresponding `capture` action in a
-previous rule in the chain.
+This rule ensures that captured transaction variables (TX:0, TX:1, TX:2, etc.)
+are only used when a `capture` action has been defined in the rule chain.
 
+<<<<<<< HEAD
 Example of a passing rule:
 
 ```apache
@@ -200,6 +200,44 @@ SecRule ARGS "@rx attack" \
     chain"
     SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without prior capture
 ```
+=======
+TX.N variables can be referenced in multiple ways:
+1. As a rule target: `SecRule TX:1 "@eq attack"`
+2. In action arguments: `msg:'Matched: %{TX.1}'`, `logdata:'Data: %{TX.0}'`
+3. In operator arguments: `@rx %{TX.1}`
+4. In setvar assignments: `setvar:tx.foo=%{TX.1}`
+
+Example of a passing rule (with capture):
+    SecRule ARGS "@rx (attack)" \
+        "id:2,\
+        phase:2,\
+        deny,\
+        capture,\
+        msg:'Attack detected: %{TX.1}',\
+        logdata:'Pattern: %{TX.0}',\
+        chain"
+        SecRule TX:1 "@eq attack"
+
+Example of a failing rule (missing capture for target):
+    SecRule ARGS "@rx attack" \
+        "id:3,\
+        phase:2,\
+        deny,\
+        t:none,\
+        nolog,\
+        chain"
+        SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without capture
+
+Example of a failing rule (missing capture for action argument):
+    SecRule ARGS "@rx attack" \
+        "id:4,\
+        phase:2,\
+        deny,\
+        msg:'Matched: %{TX.1}'"  # Fails: references TX.1 without capture
+
+This check addresses the issue found in CRS PR #4265 where %{TX.N} was
+used in action arguments without verifying that capture was defined.
+>>>>>>> f88f28b (feat: add check for TX.N usage without capture)
 
 ## CrsTag
 
