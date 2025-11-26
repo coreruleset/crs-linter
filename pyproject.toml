@@ -33,8 +33,9 @@ dependencies = [
 
 [dependency-groups]
   dev = [
-    "pytest >=9.0.1,<10"
-  ]
+    "pytest >=9.0.1,<10",
+    "pytest-cov>=7.0.0",
+]
 
 [build-system]
   requires = ["hatchling", "hatch-vcs"]
