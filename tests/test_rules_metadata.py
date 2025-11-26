@@ -3,7 +3,7 @@ Test the Rules metadata system and individual rule testing.
 """
 
 import pytest
-from crs_linter.linter import Linter, parse_config
+from crs_linter.linter import Linter
 from crs_linter.rules_metadata import Rules, get_rules
 from crs_linter.rule import Rule
 from crs_linter.lint_problem import LintProblem
@@ -48,10 +48,10 @@ def test_rules_get_rule_messages():
     assert title == "Case check"
 
 
-def test_rules_get_rule_configs():
+def test_rules_get_rule_configs(parse_rule):
     """Test that Rules.get_rule_configs generates correct configurations."""
     rules = get_rules()
-    sample_data = parse_config('SecRule ARGS "@rx ^test" "id:1,phase:1,log"')
+    sample_data = parse_rule('SecRule ARGS "@rx ^test" "id:1,phase:1,log"')
     linter = Linter(sample_data)
 
     configs = rules.get_rule_configs(linter)
@@ -66,10 +66,10 @@ def test_rules_get_rule_configs():
         assert isinstance(kwargs, dict)
 
 
-def test_individual_rule_ignorecase():
+def test_individual_rule_ignorecase(parse_rule):
     """Test the IgnoreCase rule individually."""
     rule = IgnoreCase()
-    sample_data = parse_config('SecRule ARGS "@rx ^test" "id:1,phase:1,LOG"')
+    sample_data = parse_rule('SecRule ARGS "@rx ^test" "id:1,phase:1,LOG"')
 
     problems = list(rule.check(sample_data))
 
@@ -78,10 +78,10 @@ def test_individual_rule_ignorecase():
     assert problems[0].rule == "ignore_case"
 
 
-def test_individual_rule_crstag():
+def test_individual_rule_crstag(parse_rule):
     """Test the CrsTag rule individually."""
     rule = CrsTag()
-    sample_data = parse_config('SecRule ARGS "@rx ^test" "id:900100,phase:1,log"')
+    sample_data = parse_rule('SecRule ARGS "@rx ^test" "id:900100,phase:1,log"')
 
     problems = list(rule.check(sample_data))
 
@@ -90,7 +90,7 @@ def test_individual_rule_crstag():
     assert problems[0].rule == "crs_tag"
 
 
-def test_custom_rules_system():
+def test_custom_rules_system(parse_rule):
     """Test that a custom Rules system can be created with specific rules."""
     # Test that we can create a new Rules instance and register rules
     rules = Rules()
@@ -105,7 +105,7 @@ def test_custom_rules_system():
     # Should have more rules now
     assert len(rules._rules) >= initial_count + 2
 
-    sample_data = parse_config('SecRule ARGS "@rx ^test" "id:1,phase:1,log"')
+    sample_data = parse_rule('SecRule ARGS "@rx ^test" "id:1,phase:1,log"')
     linter = Linter(sample_data, rules=rules)
 
     configs = rules.get_rule_configs(linter)
@@ -114,10 +114,10 @@ def test_custom_rules_system():
     assert len(configs) > 0
 
 
-def test_rule_conditions():
+def test_rule_conditions(parse_rule):
     """Test that conditional rules are properly handled."""
     rules = get_rules()
-    sample_data = parse_config('SecRule ARGS "@rx ^test" "id:1,phase:1,log"')
+    sample_data = parse_rule('SecRule ARGS "@rx ^test" "id:1,phase:1,log"')
     linter = Linter(sample_data)
 
     # Without version, version rule should not run
