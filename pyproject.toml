@@ -21,6 +21,7 @@ dependencies = [
     "dulwich (>=0.24.1,<0.25.0)",
     "semver (>=3.0.2,<4.0.0)",
     "github-action-utils>=1.1.0,<2.0.0",
+    "seclang_parser",
 ]
 
 [project.scripts]
