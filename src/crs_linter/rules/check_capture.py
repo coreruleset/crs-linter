@@ -135,8 +135,10 @@ class CheckCapture(Rule):
                             if value and self.expansion_pattern.search(value):
                                 if not use_captured_var:
                                     use_captured_var = True
-                                    use_captured_var_in_expansion = True
                                     captured_var_chain_level = chainlevel
+                                # Always track that TX.N is used in an expansion, even if it
+                                # was already seen as a target elsewhere in the rule chain.
+                                use_captured_var_in_expansion = True
                                 break
 
                 # End of rule/chain - validate

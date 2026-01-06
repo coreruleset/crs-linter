@@ -383,3 +383,38 @@ def test_capture_check_first_rule_in_chain_allowed():
             f"First rule in chain should be allowed to use TX:N, but found: {capture_problems}"
     finally:
         os.unlink(temp_file)
+
+
+def test_capture_check_tx_as_target_and_expansion_without_capture_fails():
+    """Test that using TX.N both as target and in expansion without capture is caught.
+    
+    This test covers the scenario where TX.N appears as both a target variable
+    and in an expansion (e.g., in msg or logdata) within the same rule.
+    This would catch the bug where use_captured_var_in_expansion is not set
+    correctly when use_captured_var is already True.
+    """
+    invalid_rule = (
+        'SecRule TX:1 "@eq foo" \\\n'  # TX:1 as target
+        '    "id:3001,\\\n'
+        '    phase:2,\\\n'
+        '    deny,\\\n'
+        "    msg:'Value: %{TX.1}'\""  # TX.1 in expansion without capture
+    )
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+        f.write(invalid_rule)
+        temp_file = f.name
+
+    try:
+        parsed = parse_config(invalid_rule)
+        assert parsed is not None
+
+        linter = Linter(parsed, filename=temp_file, file_content=invalid_rule)
+        problems = list(linter.run_checks())
+
+        capture_problems = [p for p in problems if p.rule == "capture"]
+        assert len(capture_problems) > 0, \
+            "Expected capture error for TX.1 used as both target and in msg expansion without capture"
+        assert "TX.N" in capture_problems[0].desc
+    finally:
+        os.unlink(temp_file)
