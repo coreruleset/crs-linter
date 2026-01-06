@@ -151,10 +151,11 @@ class CheckCapture(Rule):
                             # TX.N used in a chained rule (not the first)
                             if not has_capture or captured_var_chain_level < capture_level:
                                 should_error = True
-                        elif use_captured_var_in_expansion and not has_capture:
-                            # TX.N used in expansion (%{TX.N}) without capture
-                            # This is the new check for issue #69
-                            should_error = True
+                        elif use_captured_var_in_expansion:
+                            # TX.N used in expansion (%{TX.N}); require that capture is
+                            # defined at or before the chain level where TX.N is used.
+                            if not has_capture or capture_level > captured_var_chain_level:
+                                should_error = True
 
                         if should_error:
                             yield LintProblem(
