@@ -126,14 +126,16 @@ class CheckCapture(Rule):
                         capture_level = chainlevel
                         has_capture = True
 
-                    # Check if action argument contains TX.N reference
-                    if (a["act_name"] in self.actions_to_check and
-                        a.get("act_arg")):
-                        if self.expansion_pattern.search(a["act_arg"]):
-                            if not use_captured_var:
-                                use_captured_var = True
-                                use_captured_var_in_expansion = True
-                                captured_var_chain_level = chainlevel
+                    # Check if action argument (or value) contains TX.N reference
+                    if a["act_name"] in self.actions_to_check:
+                        for field in ("act_arg", "act_arg_val"):
+                            value = a.get(field)
+                            if value and self.expansion_pattern.search(value):
+                                if not use_captured_var:
+                                    use_captured_var = True
+                                    use_captured_var_in_expansion = True
+                                    captured_var_chain_level = chainlevel
+                                break
 
                 # End of rule/chain - validate
                 if ruleid > 0 and not chained:
