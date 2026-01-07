@@ -196,19 +196,31 @@ test_*.py           # Test files (one per module/rule)
   5. Run unit tests: `uv run pytest -vs`
   6. Download CRS release and run linter against it
 
-**2. PyPI Release** (`.github/workflows/pypi-release.yml`)
-- **Triggers**: Release published, manual workflow dispatch
+**2. PyPI Test Release** (`.github/workflows/pypi-test-release.yml`)
+- **Triggers**: Pre-release published
+- **Purpose**: Publish to Test PyPI for pre-release testing
 - **Steps**:
   1. Checkout repository
   2. Set up Python
-  3. Install uv
+  3. Install uv (version 0.9.22)
+  4. Run `uv build`
+  5. Run `uv publish --index testpypi` to Test PyPI
+
+**3. PyPI Release** (`.github/workflows/pypi-release.yml`)
+- **Triggers**: Release published, manual workflow dispatch
+- **Purpose**: Publish to production PyPI
+- **Steps**:
+  1. Checkout repository
+  2. Set up Python
+  3. Install uv (version 0.9.22)
   4. Run `uv build`
   5. Run `uv publish` to PyPI
 
-**3. CodeQL Analysis** (`.github/workflows/codeql-analysis.yml`)
+**4. CodeQL Analysis** (`.github/workflows/codeql-analysis.yml`)
 - **Triggers**: Push to master, Pull requests to master, Weekly schedule
 - **Language**: Python
 - **Purpose**: Security scanning
+- **Note**: This workflow uses 'master' branch (legacy), but main branch is 'main' for development
 
 ## Architecture and Design Patterns
 
