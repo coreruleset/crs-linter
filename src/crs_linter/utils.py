@@ -218,7 +218,7 @@ def parse_version_from_latest_tag(directory):
             # Fallback: if no tags are reachable (shouldn't happen normally),
             # use the highest major version
             target_major = max(tags_by_major.keys())
-    except (OSError, KeyError, AttributeError) as e:
+    except (OSError, KeyError, AttributeError):
         # If we can't determine from git history (repo errors, missing objects, etc.),
         # use the highest major version as fallback
         target_major = max(tags_by_major.keys())
