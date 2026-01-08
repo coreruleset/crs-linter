@@ -155,12 +155,13 @@ def parse_version_from_latest_tag(directory):
 
     # Parse tags and group by major version
     tags_by_major = defaultdict(list)
-    tag_to_sha = {}
 
     for tag_name, tag_info in all_tags:
         # tag_info is [timestamp, commit_sha, author, tag_meta]
         timestamp = tag_info[0]
         sha = tag_info[1]
+        # Normalize sha to string for comparison with reachable_commits
+        sha_str = sha.decode("utf-8") if isinstance(sha, bytes) else str(sha)
 
         # Strip 'v' prefix if present
         version_str = tag_name
@@ -171,8 +172,7 @@ def parse_version_from_latest_tag(directory):
         try:
             version = Version.parse(version_str)
             major = version.major
-            tags_by_major[major].append((tag_name, timestamp, sha, version))
-            tag_to_sha[tag_name] = sha
+            tags_by_major[major].append((tag_name, timestamp, sha_str, version))
         except ValueError:
             # Skip non-semver tags
             continue
@@ -190,7 +190,10 @@ def parse_version_from_latest_tag(directory):
         walker = Walker(repo.object_store, [head_sha])
         reachable_commits = set()
 
-        # Collect commits reachable from HEAD (limit to avoid excessive walking)
+        # Collect commits reachable from HEAD
+        # Limit to 10,000 commits to avoid excessive memory usage and processing time.
+        # This is sufficient for most repositories, as tags are typically created
+        # within a few thousand commits of the branch point.
         for entry in walker:
             # Convert commit ID to string for comparison
             commit_id_str = entry.commit.id.decode("utf-8") if isinstance(entry.commit.id, bytes) else str(entry.commit.id)
@@ -202,9 +205,9 @@ def parse_version_from_latest_tag(directory):
         # Find which major versions have tags reachable from HEAD
         reachable_majors = set()
         for major, tag_list in tags_by_major.items():
-            for tag_name, timestamp, sha, version in tag_list:
-                # sha is already a string from dulwich
-                if sha in reachable_commits:
+            for tag_name, timestamp, sha_str, version in tag_list:
+                # sha_str is already normalized to string format
+                if sha_str in reachable_commits:
                     reachable_majors.add(major)
                     break  # Found at least one tag for this major
 
@@ -215,8 +218,9 @@ def parse_version_from_latest_tag(directory):
             # Fallback: if no tags are reachable (shouldn't happen normally),
             # use the highest major version
             target_major = max(tags_by_major.keys())
-    except Exception:
-        # If we can't determine from git history, use the highest major version
+    except (OSError, KeyError, AttributeError):
+        # If we can't determine from git history (repo errors, missing objects, etc.),
+        # use the highest major version as fallback
         target_major = max(tags_by_major.keys())
 
     # Get the latest tag from the target major version
@@ -224,11 +228,6 @@ def parse_version_from_latest_tag(directory):
     # Sort by version number (highest version first)
     # x[3] is the Version object
     major_tags.sort(key=lambda x: x[3], reverse=True)
-    latest_tag = major_tags[0][0]
 
-    # Return the version string without 'v' prefix
-    version_str = latest_tag
-    if version_str.startswith("v"):
-        version_str = version_str[1:]
-
-    return Version.parse(version_str)
+    # Return the already parsed Version object for the latest tag
+    return major_tags[0][3]
