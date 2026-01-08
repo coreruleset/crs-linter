@@ -9,6 +9,7 @@ from crs_linter.utils import (
     parse_version_from_commit_message,
     parse_version_from_branch_name,
     generate_version_string,
+    parse_version_from_latest_tag,
 )
 
 
@@ -350,3 +351,116 @@ class TestGenerateVersionString:
 
             # Should prefer commit message
             assert version_string == "OWASP_CRS/3.0.0"
+
+
+class TestParseVersionFromLatestTag:
+    """Tests for parse_version_from_latest_tag function."""
+
+    def test_parse_version_filters_by_major_version(self):
+        """
+        Test that parse_version_from_latest_tag filters tags by major version.
+
+        This is the critical test for the bug fix: when working on a 3.x branch,
+        we should get the latest 3.x tag, not a newer 4.x tag from a different
+        major version line.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            directory = Path(tmpdir)
+            import subprocess
+
+            # Initialize a git repo
+            subprocess.run(["git", "init"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=directory, capture_output=True, check=True)
+
+            # Create v3.3.0 tag on initial commit
+            (directory / "test.txt").write_text("v3.3.0")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "v3.3.0", "--no-verify"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "tag", "v3.3.0"], cwd=directory, capture_output=True, check=True)
+
+            # Create v3.3.8 tag
+            (directory / "test.txt").write_text("v3.3.8")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "v3.3.8", "--no-verify"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "tag", "v3.3.8"], cwd=directory, capture_output=True, check=True)
+
+            # Save the 3.x branch point
+            result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=directory, capture_output=True, check=True, text=True)
+            branch_3x_sha = result.stdout.strip()
+
+            # Create a new branch for 4.x development
+            subprocess.run(["git", "checkout", "-b", "v4.x-dev"], cwd=directory, capture_output=True, check=True)
+
+            # Create v4.0.0 tag
+            (directory / "test.txt").write_text("v4.0.0")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "v4.0.0", "--no-verify"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "tag", "v4.0.0"], cwd=directory, capture_output=True, check=True)
+
+            # Create v4.5.0 tag (this is the most recent tag globally)
+            (directory / "test.txt").write_text("v4.5.0")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "v4.5.0", "--no-verify"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "tag", "v4.5.0"], cwd=directory, capture_output=True, check=True)
+
+            # Go back to the 3.x branch
+            subprocess.run(["git", "checkout", "-b", "v3.x-maintenance", branch_3x_sha], cwd=directory, capture_output=True, check=True)
+
+            # Create a commit on the 3.x branch (simulating a maintenance branch)
+            (directory / "maintenance.txt").write_text("3.x maintenance")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "3.x maintenance work", "--no-verify"], cwd=directory, capture_output=True, check=True)
+
+            # Now test: we're on a 3.x branch, so we should get v3.3.8, not v4.5.0
+            version = parse_version_from_latest_tag(directory)
+
+            assert str(version) == "3.3.8", f"Expected 3.3.8 but got {version}"
+
+    def test_generate_version_with_major_version_filtering(self):
+        """
+        Test that generate_version_string produces correct -dev version
+        when tags from different major versions exist.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            directory = Path(tmpdir)
+            import subprocess
+
+            # Initialize a git repo
+            subprocess.run(["git", "init"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=directory, capture_output=True, check=True)
+
+            # Create v3.3.8 tag
+            (directory / "test.txt").write_text("v3.3.8")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "v3.3.8", "--no-verify"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "tag", "v3.3.8"], cwd=directory, capture_output=True, check=True)
+
+            # Save the 3.x branch point
+            result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=directory, capture_output=True, check=True, text=True)
+            branch_3x_sha = result.stdout.strip()
+
+            # Create a new branch for 4.x development
+            subprocess.run(["git", "checkout", "-b", "v4.x-dev"], cwd=directory, capture_output=True, check=True)
+
+            # Create v4.5.0 tag (this is the most recent tag globally)
+            (directory / "test.txt").write_text("v4.5.0")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "v4.5.0", "--no-verify"], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "tag", "v4.5.0"], cwd=directory, capture_output=True, check=True)
+
+            # Go back to the 3.x branch
+            subprocess.run(["git", "checkout", "-b", "fix-942360", branch_3x_sha], cwd=directory, capture_output=True, check=True)
+
+            # Create a commit on the 3.x branch
+            (directory / "fix.txt").write_text("fix")
+            subprocess.run(["git", "add", "."], cwd=directory, capture_output=True, check=True)
+            subprocess.run(["git", "commit", "-m", "fix: issue 942360", "--no-verify"], cwd=directory, capture_output=True, check=True)
+
+            # Now test: we're on a 3.x branch, so we should get 3.4.0-dev, not 4.6.0-dev
+            version_string = generate_version_string(directory, "fix-942360", None)
+
+            assert version_string == "OWASP_CRS/3.4.0-dev", f"Expected OWASP_CRS/3.4.0-dev but got {version_string}"
