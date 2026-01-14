@@ -79,7 +79,7 @@ class CheckCapture(Rule):
         chained = False
         ruleid = 0
         chainlevel = 0
-        capture_level = None
+        capture_level = 0
         has_capture = False
         use_captured_var = False
         use_captured_var_in_expansion = False  # Track if TX.N is used in expansion
