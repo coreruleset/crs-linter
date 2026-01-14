@@ -89,7 +89,7 @@ def read_files(filenames):
                 line=err["line"],
                 end_line=err["line"],
             )
-            continue
+            sys.exit(1)
 
     return parsed, file_contents
 
