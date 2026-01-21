@@ -38,6 +38,44 @@ def test_cli(monkeypatch, tmp_path):
     assert ret == 0
 
 
+def test_cli_error_exit_code(monkeypatch, tmp_path):
+    """Test that CLI returns non-zero exit code on error"""
+    test_exclusions = tmp_path / "TEST_EXCLUSIONS"
+    test_exclusions.write_text("")
+
+    # Use a non-existent tags list file to trigger an error
+    non_existent_tags = tmp_path / "NON_EXISTENT_TAGS"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter",
+            "-v",
+            "4.10.0",
+            "-r",
+            "../examples/test1.conf",
+            "-t",
+            str(non_existent_tags),  # This file doesn't exist
+            "-T",
+            "examples/test/regression/tests/",
+            "-E",
+            str(test_exclusions),
+            "-d",
+            ".",
+        ],
+    )
+
+    # The CLI calls sys.exit(1) on error, which raises SystemExit
+    try:
+        ret = main()
+        # If we get here without exception, check the return code
+        assert ret != 0
+    except SystemExit as e:
+        # Verify that the exit code is non-zero
+        assert e.code != 0
+
+
 def test_generate_version_string_from_commit_message():
     version_string = generate_version_string(
         Path("/tmp"), None, "chore: release v1.2.3"
