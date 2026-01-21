@@ -1,4 +1,5 @@
 import sys
+import pytest
 
 from crs_linter.cli import *
 from pathlib import Path
@@ -106,3 +107,81 @@ def test_generate_version_string_ignoring_post_branch_name():
     except NotGitRepository as ex:
         caught = True
     assert caught
+
+
+def test_parsing_failure_exits_with_error_code_when_fail_fast(monkeypatch, tmp_path):
+    """Test that parsing failures exit with code 1 when --fail-fast is used"""
+    # Create a malformed rule file that will fail parsing
+    invalid_rule = tmp_path / "invalid.conf"
+    invalid_rule.write_text("SecRule INVALID SYNTAX @@@@ THIS WILL NOT PARSE")
+
+    # Create required config files
+    approved_tags = tmp_path / "APPROVED_TAGS"
+    test_exclusions = tmp_path / "TEST_EXCLUSIONS"
+    approved_tags.write_text("")
+    test_exclusions.write_text("")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter",
+            "-v",
+            "4.10.0",
+            "-r",
+            str(invalid_rule),
+            "-t",
+            str(approved_tags),
+            "-E",
+            str(test_exclusions),
+            "--fail-fast",
+        ],
+    )
+
+    # The program should exit with code 1 when parsing fails with --fail-fast
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+
+def test_parsing_failure_continues_without_fail_fast(monkeypatch, tmp_path):
+    """Test that parsing failures continue without --fail-fast (default behavior)"""
+    # Create a malformed rule file that will fail parsing
+    invalid_rule = tmp_path / "invalid.conf"
+    invalid_rule.write_text("SecRule INVALID SYNTAX @@@@ THIS WILL NOT PARSE")
+
+    # Create a valid rule file
+    valid_rule = tmp_path / "valid.conf"
+    valid_rule.write_text("")
+
+    # Create required config files
+    approved_tags = tmp_path / "APPROVED_TAGS"
+    test_exclusions = tmp_path / "TEST_EXCLUSIONS"
+    approved_tags.write_text("")
+    test_exclusions.write_text("")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter",
+            "-v",
+            "4.10.0",
+            "-r",
+            str(invalid_rule),
+            "-r",
+            str(valid_rule),
+            "-t",
+            str(approved_tags),
+            "-E",
+            str(test_exclusions),
+        ],
+    )
+
+    # The program should continue and return 0 (since there are no linting errors in the valid file)
+    # Note: The parsing error will be logged but won't cause an exit
+    ret = main()
+
+    # Should return 0 because the valid file has no linting issues
+    assert ret == 0

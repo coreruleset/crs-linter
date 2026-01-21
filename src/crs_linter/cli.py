@@ -46,7 +46,7 @@ def get_crs_version(directory, version=None, head_ref=None, commit_message=None)
     return crs_version
 
 
-def read_files(filenames):
+def read_files(filenames, fail_fast=False):
     """ Iterate over the files and parse them using the msc_pyparser"""
     global logger
 
@@ -89,6 +89,9 @@ def read_files(filenames):
                 line=err["line"],
                 end_line=err["line"],
             )
+            if fail_fast:
+                sys.exit(1)
+            # Skip this file and continue with the next one
             continue
 
     return parsed, file_contents
@@ -129,6 +132,12 @@ def parse_args(argv):
     )
     parser.add_argument(
         "--debug", dest="debug", help="Show debug information.", action="store_true"
+    )
+    parser.add_argument(
+        "--fail-fast",
+        dest="fail_fast",
+        help="Exit immediately on parsing errors instead of continuing.",
+        action="store_true",
     )
     parser.add_argument(
         "-r",
@@ -211,7 +220,7 @@ def main():
     filename_tags_exclusions = []
     if args.filename_tags_exclusions is not None:
         filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
-    parsed, file_contents = read_files(files)
+    parsed, file_contents = read_files(files, fail_fast=args.fail_fast)
     txvars = {} # Shared dict for tracking TX variables across all files
     ids = {}  # Shared dict for tracking rule IDs across all files
 
