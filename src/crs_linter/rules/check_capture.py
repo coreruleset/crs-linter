@@ -125,8 +125,10 @@ class CheckCapture(Rule):
                         chained = True
                         chainlevel += 1
                     if a["act_name"] == "capture":
-                        capture_level = chainlevel
-                        has_capture = True
+                        if not has_capture:
+                            capture_level = chainlevel
+                            has_capture = True
+                        # Don't update capture_level if already set; keep the earliest one
 
                     # Check if action argument (or value) contains TX.N reference
                     if a["act_name"] in self.actions_to_check:

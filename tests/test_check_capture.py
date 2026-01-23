@@ -418,3 +418,47 @@ def test_capture_check_tx_as_target_and_expansion_without_capture_fails():
         assert "TX.N" in capture_problems[0].desc
     finally:
         os.unlink(temp_file)
+
+
+def test_capture_check_multiple_captures_in_chain_passes():
+    """Test that multiple capture actions in chain don't cause false positives.
+
+    This test covers the bug where having multiple capture actions in a chain
+    would overwrite capture_level, causing false positives for TX.N usage in
+    earlier rules that had their own capture action.
+
+    Similar to CRS rule 932205 which has:
+    - First rule (chainlevel 0): capture action, uses %{TX.2} in logdata
+    - Second rule (chainlevel 1): another capture action
+
+    The first rule's TX.2 usage should be valid because it has capture at the same level.
+    """
+    valid_rule = (
+        'SecRule ARGS "@rx (foo)(bar)" \\\n'  # Capturing groups
+        '    "id:4001,\\\n'
+        '    phase:2,\\\n'
+        '    pass,\\\n'
+        '    capture,\\\n'  # Capture at chainlevel 0
+        "    logdata:'Matched: %{TX.2}',\\\n"  # TX.2 usage at chainlevel 0
+        '    chain"\n'
+        '    SecRule TX:0 "@rx ^foobar$" \\\n'
+        '        "capture,\\\n'  # Another capture at chainlevel 1
+        '        t:none"'
+    )
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+        f.write(valid_rule)
+        temp_file = f.name
+
+    try:
+        parsed = parse_config(valid_rule)
+        assert parsed is not None
+
+        linter = Linter(parsed, filename=temp_file, file_content=valid_rule)
+        problems = list(linter.run_checks())
+
+        capture_problems = [p for p in problems if p.rule == "capture"]
+        assert len(capture_problems) == 0, \
+            f"Should not error when TX.N has capture at same level, even with later captures: {capture_problems}"
+    finally:
+        os.unlink(temp_file)
