@@ -471,9 +471,9 @@ SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
 ```
 
 
-    # Rule missing severity action
 
 ```apache
+# Rule missing severity action
 SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
     "id:920161,\
     phase:1,\
@@ -485,9 +485,9 @@ SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
 ```
 
 
-    # Rule setting wrong PL variable
 
 ```apache
+# Rule setting wrong PL variable
 SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
     "id:920162,\
     phase:1,\
@@ -592,9 +592,9 @@ SecRule REQUEST_URI "@rx index.php" \
 ```
 
 
-    # Incorrect 'ver' value
 
 ```apache
+# Incorrect 'ver' value
 SecRule REQUEST_URI "@rx index.php" \
     "id:2,\
     phase:1,\
