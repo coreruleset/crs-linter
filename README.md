@@ -366,21 +366,33 @@ cookie exclusions should be moved to separate post-CRS files using
 SecRuleUpdateTargetById directives.
 
 Example of a failing rule (old pattern - not allowed):
-    SecRule !REQUEST_COOKIES:session_id|ARGS:foo "@rx attack" \
-        "id:942100,\
-        phase:2,\
-        block"  # Fails: uses !REQUEST_COOKIES
+
+```apache
+SecRule !REQUEST_COOKIES:session_id|ARGS:foo "@rx attack" \
+    "id:942100,\
+    phase:2,\
+    block"  # Fails: uses !REQUEST_COOKIES
+```
+
 
 Example of the correct approach (new pattern):
 
 In the main rule file:
-    SecRule REQUEST_COOKIES|ARGS:foo "@rx attack" \
-        "id:942100,\
-        phase:2,\
-        block"
+
+```apache
+SecRule REQUEST_COOKIES|ARGS:foo "@rx attack" \
+    "id:942100,\
+    phase:2,\
+    block"
+```
+
 
 In a separate post-CRS configuration file:
-    SecRuleUpdateTargetById 942100 "!REQUEST_COOKIES:session_id"
+
+```apache
+SecRuleUpdateTargetById 942100 "!REQUEST_COOKIES:session_id"
+```
+
 
 See: https://github.com/coreruleset/coreruleset/pull/4378
 
