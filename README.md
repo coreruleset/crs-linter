@@ -354,6 +354,70 @@ The rule should use either:
 - t:lowercase with a case-sensitive regex: "@rx foo"
 - (?i) flag without t:lowercase transformation
 
+## NoNegatedRequestCookies
+
+**Source:** `src/crs_linter/rules/no_negated_request_cookies.py`
+
+Check that SecRule directives don't use negated REQUEST_COOKIES targets.
+
+This rule enforces the policy that cookie exclusions should not be
+implemented using !REQUEST_COOKIES in SecRule directives. Instead,
+cookie exclusions should be moved to separate post-CRS files using
+SecRuleUpdateTargetById directives.
+
+Example of a failing rule (old pattern - not allowed):
+    SecRule !REQUEST_COOKIES:session_id|ARGS:foo "@rx attack" \
+        "id:942100,\
+        phase:2,\
+        block"  # Fails: uses !REQUEST_COOKIES
+
+Example of the correct approach (new pattern):
+
+In the main rule file:
+    SecRule REQUEST_COOKIES|ARGS:foo "@rx attack" \
+        "id:942100,\
+        phase:2,\
+        block"
+
+In a separate post-CRS configuration file:
+    SecRuleUpdateTargetById 942100 "!REQUEST_COOKIES:session_id"
+
+See: https://github.com/coreruleset/coreruleset/pull/4378
+
+## OrderedActions
+
+**Source:** `src/crs_linter/rules/ordered_actions.py`
+
+Check that actions are in the correct order.
+
+This rule verifies that actions in rules follow the CRS-specified order.
+The first action must be 'id', followed by 'phase', and then other
+actions in their designated order.
+
+Example of a failing rule (wrong action order):
+
+```apache
+SecRule REQUEST_URI "@beginsWith /index.php" \
+    "phase:1,\  # Wrong: phase should come after id
+    id:1,\
+    deny,\
+    t:none,\
+    nolog"
+```
+
+
+Example of a correct rule:
+
+```apache
+SecRule REQUEST_URI "@beginsWith /index.php" \
+    "id:1,\  # Correct: id comes first
+    phase:1,\  # Correct: phase comes second
+    deny,\
+    t:none,\
+    nolog"
+```
+
+>>>>>>> 0bea3ef (feat: add lint for no negated request_cookies)
 ## PlConsistency
 
 **Source:** `src/crs_linter/rules/pl_consistency.py`
