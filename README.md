@@ -147,14 +147,18 @@ util/APPROVED_TAGS file. Any tag not listed in this file will be
 considered a check failure.
 
 Example of a failing rule:
-    SecRule REQUEST_URI "@rx index.php" \
-        "id:1,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog,\
-        tag:attack-xss,\
-        tag:my-custom-tag"  # Fails if 'my-custom-tag' not in APPROVED_TAGS
+
+```apache
+SecRule REQUEST_URI "@rx index.php" \
+    "id:1,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog,\
+    tag:attack-xss,\
+    tag:my-custom-tag"  # Fails if 'my-custom-tag' not in APPROVED_TAGS
+```
+
 
 To use a new tag on a rule, it must first be registered in the
 util/APPROVED_TAGS file.
@@ -170,25 +174,32 @@ This rule ensures that chained rules using captured transaction variables
 previous rule in the chain.
 
 Example of a passing rule:
-    SecRule ARGS "@rx attack" \
-        "id:2,\
-        phase:2,\
-        deny,\
-        capture,\
-        t:none,\
-        nolog,\
-        chain"
-        SecRule TX:1 "@eq attack"
+
+```apache
+SecRule ARGS "@rx attack" \
+    "id:2,\
+    phase:2,\
+    deny,\
+    capture,\
+    t:none,\
+    nolog,\
+    chain"
+    SecRule TX:1 "@eq attack"
+```
+
 
 Example of a failing rule (missing capture):
-    SecRule ARGS "@rx attack" \
-        "id:3,\
-        phase:2,\
-        deny,\
-        t:none,\
-        nolog,\
-        chain"
-        SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without prior capture
+
+```apache
+SecRule ARGS "@rx attack" \
+    "id:3,\
+    phase:2,\
+    deny,\
+    t:none,\
+    nolog,\
+    chain"
+    SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without prior capture
+```
 
 ## CrsTag
 
@@ -201,23 +212,31 @@ This rule verifies that:
 2. Every non-administrative rule has a tag with value 'OWASP_CRS/$filename$'
 
 Example of a failing rule (missing OWASP_CRS tag):
-    SecRule REQUEST_URI "@rx index.php" \
-        "id:1,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog,\
-        tag:attack-xss"  # Fails: missing tag:OWASP_CRS
+
+```apache
+SecRule REQUEST_URI "@rx index.php" \
+    "id:1,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog,\
+    tag:attack-xss"  # Fails: missing tag:OWASP_CRS
+```
+
 
 Example of a passing rule:
-    SecRule REQUEST_URI "@rx index.php" \
-        "id:1,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog,\
-        tag:OWASP_CRS,\
-        tag:OWASP_CRS/test11"
+
+```apache
+SecRule REQUEST_URI "@rx index.php" \
+    "id:1,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog,\
+    tag:OWASP_CRS,\
+    tag:OWASP_CRS/test11"
+```
+
 
 Files can be excluded from filename tag checking using the -f flag with
 a list of excluded files (see FILENAME_EXCLUSIONS for an example).
@@ -232,13 +251,17 @@ This is a general-purpose rule for checking deprecated patterns that may be
 removed in future CRS versions. Currently checks for ctl:auditLogParts.
 
 Example of a failing rule (using deprecated ctl:auditLogParts):
-    SecRule TX:sql_error_match "@eq 1" \
-        "id:1,\
-        phase:4,\
-        block,\
-        capture,\
-        t:none,\
-        ctl:auditLogParts=+E"  # Fails: ctl:auditLogParts is deprecated
+
+```apache
+SecRule TX:sql_error_match "@eq 1" \
+    "id:1,\
+    phase:4,\
+    block,\
+    capture,\
+    t:none,\
+    ctl:auditLogParts=+E"  # Fails: ctl:auditLogParts is deprecated
+```
+
 
 The ctl:auditLogParts action is no longer supported in CRS (see PR #3034).
 
@@ -256,19 +279,26 @@ This rule ensures that each rule has a unique ID across all configuration
 files in the ruleset.
 
 Example of failing rules (duplicate IDs):
-    SecRule ARGS "@rx foo" \
-        "id:1001,\
-        phase:2,\
-        block,\
-        capture,\
-        t:none"
 
-    SecRule ARGS_NAMES "@rx bar" \
-        "id:1001,\  # Fails: ID 1001 is already used above
-        phase:2,\
-        block,\
-        capture,\
-        t:none"
+```apache
+SecRule ARGS "@rx foo" \
+    "id:1001,\
+    phase:2,\
+    block,\
+    capture,\
+    t:none"
+```
+
+
+
+```apache
+SecRule ARGS_NAMES "@rx bar" \
+    "id:1001,\  # Fails: ID 1001 is already used above
+    phase:2,\
+    block,\
+    capture,\
+    t:none"
+```
 
 ## IgnoreCase
 
@@ -283,20 +313,28 @@ insensitive. This rule also ensures that an operator is explicitly
 specified.
 
 Example of a failing rule (incorrect operator case):
-    SecRule REQUEST_URI "@beginswith /index.php" \
-        "id:1,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog"  # Fails: @beginswith should be @beginsWith
+
+```apache
+SecRule REQUEST_URI "@beginswith /index.php" \
+    "id:1,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog"  # Fails: @beginswith should be @beginsWith
+```
+
 
 Example of a failing rule (missing operator):
-    SecRule REQUEST_URI "index.php" \
-        "id:1,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog"  # Fails: empty operator isn't allowed, must use @rx
+
+```apache
+SecRule REQUEST_URI "index.php" \
+    "id:1,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog"  # Fails: empty operator isn't allowed, must use @rx
+```
+
 
 ModSecurity defaults to @rx when no operator is specified, but CRS
 requires explicit operators for clarity.
@@ -313,24 +351,35 @@ the formatted version of each file and compares it with the original
 using difflib to detect any formatting discrepancies.
 
 Example of failing rules (incorrect indentation):
-     SecRule ARGS "@rx foo" \  # Extra leading space
-       "id:1,\  # Wrong indentation (should be 4 spaces)
-        phase:1,\
-        pass,\
-        nolog"
 
-    SecRule ARGS "@rx foo" \
-         "id:3,\  # Extra leading space
-        phase:1,\
-        pass,\
-        nolog"
+```apache
+ SecRule ARGS "@rx foo" \  # Extra leading space
+   "id:1,\  # Wrong indentation (should be 4 spaces)
+    phase:1,\
+    pass,\
+    nolog"
+```
+
+
+
+```apache
+SecRule ARGS "@rx foo" \
+     "id:3,\  # Extra leading space
+    phase:1,\
+    pass,\
+    nolog"
+```
+
 
 Example of correct indentation:
-    SecRule ARGS "@rx foo" \
-        "id:2,\
-        phase:1,\
-        pass,\
-        nolog"
+
+```apache
+SecRule ARGS "@rx foo" \
+    "id:2,\
+    phase:1,\
+    pass,\
+    nolog"
+```
 
 ## LowercaseIgnorecase
 
@@ -343,12 +392,16 @@ the (?i) case-insensitive regex flag together. This combination is
 redundant and should be avoided - use one or the other.
 
 Example of a failing rule (combining t:lowercase and (?i)):
-    SecRule ARGS "@rx (?i)foo" \
-        "id:1,\
-        phase:1,\
-        pass,\
-        t:lowercase,\  # Fails: redundant with (?i) flag
-        nolog"
+
+```apache
+SecRule ARGS "@rx (?i)foo" \
+    "id:1,\
+    phase:1,\
+    pass,\
+    t:lowercase,\  # Fails: redundant with (?i) flag
+    nolog"
+```
+
 
 The rule should use either:
 - t:lowercase with a case-sensitive regex: "@rx foo"
@@ -365,20 +418,27 @@ The first action must be 'id', followed by 'phase', and then other
 actions in their designated order.
 
 Example of a failing rule (wrong action order):
-    SecRule REQUEST_URI "@beginsWith /index.php" \
-        "phase:1,\  # Wrong: phase should come after id
-        id:1,\
-        deny,\
-        t:none,\
-        nolog"
+
+```apache
+SecRule REQUEST_URI "@beginsWith /index.php" \
+    "phase:1,\  # Wrong: phase should come after id
+    id:1,\
+    deny,\
+    t:none,\
+    nolog"
+```
+
 
 Example of a correct rule:
-    SecRule REQUEST_URI "@beginsWith /index.php" \
-        "id:1,\  # Correct: id comes first
-        phase:1,\  # Correct: phase comes second
-        deny,\
-        t:none,\
-        nolog"
+
+```apache
+SecRule REQUEST_URI "@beginsWith /index.php" \
+    "id:1,\  # Correct: id comes first
+    phase:1,\  # Correct: phase comes second
+    deny,\
+    t:none,\
+    nolog"
+```
 
 ## PlConsistency
 
@@ -396,37 +456,48 @@ have consistent tags and anomaly scoring variables. It checks:
 5. Rules must have severity action when setting anomaly scores
 
 Example of failing rules:
-    # Rule activated on PL1 but tagged as PL2
-    SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
-        "id:920160,\
-        phase:1,\
-        block,\
-        t:none,\
-        tag:'paranoia-level/2',\  # Wrong: should be paranoia-level/1
-        severity:'CRITICAL',\
-        setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
-        # Also wrong: severity CRITICAL but using error_anomaly_score
 
-    # Rule missing severity action
-    SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
-        "id:920161,\
-        phase:1,\
-        block,\
-        t:none,\
-        tag:'paranoia-level/1',\
-        setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
-        # Missing severity action
+```apache
+# Rule activated on PL1 but tagged as PL2
+SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
+    "id:920160,\
+    phase:1,\
+    block,\
+    t:none,\
+    tag:'paranoia-level/2',\  # Wrong: should be paranoia-level/1
+    severity:'CRITICAL',\
+    setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+    # Also wrong: severity CRITICAL but using error_anomaly_score
+```
 
-    # Rule setting wrong PL variable
-    SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
-        "id:920162,\
-        phase:1,\
-        block,\
-        t:none,\
-        tag:'paranoia-level/1',\
-        severity:'CRITICAL',\
-        setvar:'tx.inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}'"
-        # Wrong: using pl2 variable on PL1
+
+
+```apache
+# Rule missing severity action
+SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
+    "id:920161,\
+    phase:1,\
+    block,\
+    t:none,\
+    tag:'paranoia-level/1',\
+    setvar:'tx.inbound_anomaly_score_pl1=+%{tx.error_anomaly_score}'"
+    # Missing severity action
+```
+
+
+
+```apache
+# Rule setting wrong PL variable
+SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
+    "id:920162,\
+    phase:1,\
+    block,\
+    t:none,\
+    tag:'paranoia-level/1',\
+    severity:'CRITICAL',\
+    setvar:'tx.inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}'"
+    # Wrong: using pl2 variable on PL1
+```
 
 ## RuleTests
 
@@ -443,12 +514,16 @@ The check skips:
 - Rules in the exclusion list (configured via -E flag)
 
 Example of a failing rule (no corresponding tests):
-    SecRule REQUEST_URI "@rx malicious" \
-        "id:942100,\  # Fails if no test case references rule 942100
-        phase:2,\
-        block,\
-        t:none,\
-        tag:OWASP_CRS"
+
+```apache
+SecRule REQUEST_URI "@rx malicious" \
+    "id:942100,\  # Fails if no test case references rule 942100
+    phase:2,\
+    block,\
+    t:none,\
+    tag:OWASP_CRS"
+```
+
 
 To fix: Add a test case to your test suite that exercises this rule.
 
@@ -469,18 +544,26 @@ used. A variable is considered "used" when it appears:
 - In an expansion (e.g., msg:'Value: %{tx.foo}')
 
 Example of failing rules (uninitialized variable):
-    SecRule TX:foo "@rx bar" \
-        "id:1001,\
-        phase:1,\
-        pass,\
-        nolog"  # Fails: TX:foo used but never set
 
-    SecRule ARGS "@rx ^.*$" \
-        "id:1002,\
-        phase:1,\
-        pass,\
-        nolog,\
-        setvar:tx.bar=1"  # Warning: tx.bar set but never used
+```apache
+SecRule TX:foo "@rx bar" \
+    "id:1001,\
+    phase:1,\
+    pass,\
+    nolog"  # Fails: TX:foo used but never set
+```
+
+
+
+```apache
+SecRule ARGS "@rx ^.*$" \
+    "id:1002,\
+    phase:1,\
+    pass,\
+    nolog,\
+    setvar:tx.bar=1"  # Warning: tx.bar set but never used
+```
+
 
 The linter also reports unused TX variables - variables that are set but
 never referenced anywhere in the ruleset.
@@ -496,32 +579,43 @@ CRS version string. The version can be specified manually using the -v
 flag, or automatically extracted from git tags using 'git describe --tags'.
 
 Example of failing rules:
-    # Missing 'ver' action
-    SecRule REQUEST_URI "@rx index.php" \
-        "id:1,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog,\
-        tag:OWASP_CRS"  # Fails: no ver action
 
-    # Incorrect 'ver' value
-    SecRule REQUEST_URI "@rx index.php" \
-        "id:2,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog,\
-        tag:OWASP_CRS,\
-        ver:OWASP_CRS/1.0.0-dev"  # Fails if expected version is 4.6.0-dev
+```apache
+# Missing 'ver' action
+SecRule REQUEST_URI "@rx index.php" \
+    "id:1,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog,\
+    tag:OWASP_CRS"  # Fails: no ver action
+```
+
+
+
+```apache
+# Incorrect 'ver' value
+SecRule REQUEST_URI "@rx index.php" \
+    "id:2,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog,\
+    tag:OWASP_CRS,\
+    ver:OWASP_CRS/1.0.0-dev"  # Fails if expected version is 4.6.0-dev
+```
+
 
 Example of a correct rule:
-    SecRule REQUEST_URI "@rx index.php" \
-        "id:3,\
-        phase:1,\
-        deny,\
-        t:none,\
-        nolog,\
-        tag:OWASP_CRS,\
-        ver:'OWASP_CRS/4.6.0-dev'"
+
+```apache
+SecRule REQUEST_URI "@rx index.php" \
+    "id:3,\
+    phase:1,\
+    deny,\
+    t:none,\
+    nolog,\
+    tag:OWASP_CRS,\
+    ver:'OWASP_CRS/4.6.0-dev'"
+```
 <!-- GENERATED_RULES_DOCS_END -->

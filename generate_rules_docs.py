@@ -15,6 +15,7 @@ Options:
 import sys
 import importlib
 import inspect
+import re
 from pathlib import Path
 from typing import List, Dict, Tuple
 
@@ -63,6 +64,103 @@ def extract_rule_docs() -> List[Dict[str, str]]:
     return docs
 
 
+def format_code_blocks(docstring: str) -> str:
+    """
+    Format code blocks in docstrings with proper markdown triple backticks.
+
+    Detects indented code blocks (especially ModSecurity rules) and wraps them
+    in triple backticks for proper markdown rendering.
+
+    Args:
+        docstring: The original docstring text
+
+    Returns:
+        Formatted docstring with code blocks wrapped in backticks
+    """
+    lines = docstring.split('\n')
+    result = []
+    in_code_block = False
+    code_block_lines = []
+
+    # ModSecurity directives that indicate actual code
+    code_directives = ['SecRule', 'SecAction', 'SecRuleUpdateTargetById', 'SecRuleRemoveById']
+    
+    # Number of lines to check ahead when detecting code blocks after Example headers
+    LOOKAHEAD_LINES = 5
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
+        # Check if this line is the start of an example section
+        if re.match(r'^\s*(Example|example).*:', line):
+            # This is an example header, keep it as-is
+            if in_code_block:
+                # Close any previous code block
+                result.extend(code_block_lines)
+                result.append('```')
+                code_block_lines = []
+                in_code_block = False
+            result.append(line)
+            i += 1
+
+            # Check if the next lines are indented (code) and contain non-whitespace content
+            if i < len(lines) and lines[i].startswith('    ') and lines[i].strip():
+                # Look ahead to see if there's actual code (not just descriptive text)
+                has_code_ahead = False
+                for lookahead_line in lines[i:i+LOOKAHEAD_LINES]:
+                    if any(directive in lookahead_line for directive in code_directives):
+                        has_code_ahead = True
+                        break
+
+                if has_code_ahead:
+                    in_code_block = True
+                    result.append('\n```apache')
+            continue
+
+        # Check if this is an indented line that contains ModSecurity directives
+        is_code_line = False
+        if line.startswith('    ') and line.strip():  # At least 4 spaces and not empty
+            stripped = line.strip()
+            # Check for actual code directives, comment lines, or continuation of code
+            if any(directive in line for directive in code_directives):
+                is_code_line = True
+            elif stripped.startswith('#'):
+                # Indented comment line; treat as part of code (can start a new block)
+                is_code_line = True
+            elif in_code_block and ('"' in line or '\\' in line):
+                # Likely continuation of a rule within a code block
+                is_code_line = True
+
+        if is_code_line:
+            if not in_code_block:
+                # Start a new code block
+                in_code_block = True
+                result.append('\n```apache')
+            # Add the line with reduced indentation (remove the 4-space docstring indent)
+            code_block_lines.append(line[4:])
+        else:
+            # Not a code line
+            if in_code_block:
+                # Close the code block
+                result.extend(code_block_lines)
+                result.append('```\n')
+                code_block_lines = []
+                in_code_block = False
+
+            # Add the regular line
+            result.append(line)
+
+        i += 1
+
+    # Close any remaining code block
+    if in_code_block:
+        result.extend(code_block_lines)
+        result.append('```')
+
+    return '\n'.join(result)
+
+
 def format_rule_docs(docs: List[Dict[str, str]]) -> str:
     """
     Format extracted docstrings into Markdown.
@@ -87,8 +185,9 @@ def format_rule_docs(docs: List[Dict[str, str]]) -> str:
         # Add source file reference
         lines.append(f"**Source:** `src/crs_linter/rules/{doc['module_name']}.py`\n")
 
-        # Add the docstring content
-        lines.append(doc['docstring'])
+        # Add the docstring content with code blocks formatted
+        formatted_docstring = format_code_blocks(doc['docstring'])
+        lines.append(formatted_docstring)
         lines.append("")  # Extra blank line between rules
 
     return "\n".join(lines)
