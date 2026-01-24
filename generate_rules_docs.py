@@ -84,6 +84,9 @@ def format_code_blocks(docstring: str) -> str:
 
     # ModSecurity directives that indicate actual code
     code_directives = ['SecRule', 'SecAction', 'SecRuleUpdateTargetById', 'SecRuleRemoveById']
+    
+    # Number of lines to check ahead when detecting code blocks after Example headers
+    LOOKAHEAD_LINES = 5
 
     i = 0
     while i < len(lines):
@@ -102,10 +105,10 @@ def format_code_blocks(docstring: str) -> str:
             i += 1
 
             # Check if the next lines are indented (code) and contain non-whitespace content
-            if i < len(lines) and lines[i].startswith('    ') and len(lines[i].strip()) > 0:
+            if i < len(lines) and lines[i].startswith('    ') and lines[i].strip():
                 # Look ahead to see if there's actual code (not just descriptive text)
                 has_code_ahead = False
-                for lookahead_line in lines[i:i+5]:  # Check next 5 lines
+                for lookahead_line in lines[i:i+LOOKAHEAD_LINES]:
                     if any(directive in lookahead_line for directive in code_directives):
                         has_code_ahead = True
                         break
