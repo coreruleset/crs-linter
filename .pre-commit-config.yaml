@@ -13,6 +13,8 @@ repos:
       - id: generate-rules-docs
         name: Generate rules documentation
         entry: uv run python generate_rules_docs.py
-        language: system
+        language: python
+        additional_dependencies: ['uv']
         files: ^(src/crs_linter/rules/.*\.py|README\.md)$
         pass_filenames: false
+        require_serial: true
