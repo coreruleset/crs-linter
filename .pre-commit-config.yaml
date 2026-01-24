@@ -1,0 +1,18 @@
+---
+ci:
+    autofix_commit_msg: |
+        chore(formatting): auto fixes from pre-commit hooks
+
+        for more information, see https://pre-commit.ci
+    autofix_prs: true
+    skip: []
+    submodules: false
+repos:
+  - repo: local
+    hooks:
+      - id: generate-rules-docs
+        name: Generate rules documentation
+        entry: uv run python generate_rules_docs.py
+        language: system
+        files: ^(src/crs_linter/rules/.*\.py|README\.md)$
+        pass_filenames: false
