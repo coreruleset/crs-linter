@@ -15,6 +15,7 @@ Options:
 import sys
 import importlib
 import inspect
+import re
 from pathlib import Path
 from typing import List, Dict, Tuple
 
@@ -76,8 +77,6 @@ def format_code_blocks(docstring: str) -> str:
     Returns:
         Formatted docstring with code blocks wrapped in backticks
     """
-    import re
-
     lines = docstring.split('\n')
     result = []
     in_code_block = False
@@ -85,6 +84,9 @@ def format_code_blocks(docstring: str) -> str:
 
     # ModSecurity directives that indicate actual code
     code_directives = ['SecRule', 'SecAction', 'SecRuleUpdateTargetById', 'SecRuleRemoveById']
+    
+    # Number of lines to check ahead when detecting code blocks after Example headers
+    LOOKAHEAD_LINES = 5
 
     i = 0
     while i < len(lines):
@@ -102,11 +104,11 @@ def format_code_blocks(docstring: str) -> str:
             result.append(line)
             i += 1
 
-            # Check if the next lines are indented (code)
-            if i < len(lines) and len(lines[i]) > 4 and lines[i].startswith('    '):
+            # Check if the next lines are indented (code) and contain non-whitespace content
+            if i < len(lines) and lines[i].startswith('    ') and lines[i].strip():
                 # Look ahead to see if there's actual code (not just descriptive text)
                 has_code_ahead = False
-                for lookahead_line in lines[i:i+5]:  # Check next 5 lines
+                for lookahead_line in lines[i:i+LOOKAHEAD_LINES]:
                     if any(directive in lookahead_line for directive in code_directives):
                         has_code_ahead = True
                         break
@@ -119,11 +121,15 @@ def format_code_blocks(docstring: str) -> str:
         # Check if this is an indented line that contains ModSecurity directives
         is_code_line = False
         if line.startswith('    ') and line.strip():  # At least 4 spaces and not empty
-            # Check for actual code directives or continuation of code (starts with quote or has backslash)
+            stripped = line.strip()
+            # Check for actual code directives, comment lines, or continuation of code
             if any(directive in line for directive in code_directives):
                 is_code_line = True
-            elif in_code_block and ('"' in line or '\\' in line or line.strip().startswith('#')):
-                # Likely continuation of a rule or a comment within code
+            elif stripped.startswith('#'):
+                # Indented comment line; treat as part of code (can start a new block)
+                is_code_line = True
+            elif in_code_block and ('"' in line or '\\' in line):
+                # Likely continuation of a rule within a code block
                 is_code_line = True
 
         if is_code_line:
@@ -132,7 +138,7 @@ def format_code_blocks(docstring: str) -> str:
                 in_code_block = True
                 result.append('\n```apache')
             # Add the line with reduced indentation (remove the 4-space docstring indent)
-            code_block_lines.append(line[4:] if len(line) > 4 else line.strip())
+            code_block_lines.append(line[4:])
         else:
             # Not a code line
             if in_code_block:
