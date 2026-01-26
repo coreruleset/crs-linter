@@ -269,37 +269,6 @@ Note: This overlaps with ctl_audit_log.py which checks the same pattern but
 treats it as "not allowed" rather than "deprecated". Consider consolidating
 these rules if they serve the same purpose.
 
-## DuplicatedIds
-
-**Source:** `src/crs_linter/rules/duplicated.py`
-
-Check for duplicated rule IDs.
-
-This rule ensures that each rule has a unique ID across all configuration
-files in the ruleset.
-
-Example of failing rules (duplicate IDs):
-
-```apache
-SecRule ARGS "@rx foo" \
-    "id:1001,\
-    phase:2,\
-    block,\
-    capture,\
-    t:none"
-```
-
-
-
-```apache
-SecRule ARGS_NAMES "@rx bar" \
-    "id:1001,\  # Fails: ID 1001 is already used above
-    phase:2,\
-    block,\
-    capture,\
-    t:none"
-```
-
 ## IgnoreCase
 
 **Source:** `src/crs_linter/rules/ignore_case.py`
@@ -339,48 +308,6 @@ SecRule REQUEST_URI "index.php" \
 ModSecurity defaults to @rx when no operator is specified, but CRS
 requires explicit operators for clarity.
 
-## Indentation
-
-**Source:** `src/crs_linter/rules/indentation.py`
-
-Check for indentation errors in rules.
-
-This rule verifies that rule files follow CRS formatting guidelines for
-indentation and whitespace. The linter uses msc_pyparser to regenerate
-the formatted version of each file and compares it with the original
-using difflib to detect any formatting discrepancies.
-
-Example of failing rules (incorrect indentation):
-
-```apache
- SecRule ARGS "@rx foo" \  # Extra leading space
-   "id:1,\  # Wrong indentation (should be 4 spaces)
-    phase:1,\
-    pass,\
-    nolog"
-```
-
-
-
-```apache
-SecRule ARGS "@rx foo" \
-     "id:3,\  # Extra leading space
-    phase:1,\
-    pass,\
-    nolog"
-```
-
-
-Example of correct indentation:
-
-```apache
-SecRule ARGS "@rx foo" \
-    "id:2,\
-    phase:1,\
-    pass,\
-    nolog"
-```
-
 ## LowercaseIgnorecase
 
 **Source:** `src/crs_linter/rules/lowercase_ignorecase.py`
@@ -406,39 +333,6 @@ SecRule ARGS "@rx (?i)foo" \
 The rule should use either:
 - t:lowercase with a case-sensitive regex: "@rx foo"
 - (?i) flag without t:lowercase transformation
-
-## OrderedActions
-
-**Source:** `src/crs_linter/rules/ordered_actions.py`
-
-Check that actions are in the correct order.
-
-This rule verifies that actions in rules follow the CRS-specified order.
-The first action must be 'id', followed by 'phase', and then other
-actions in their designated order.
-
-Example of a failing rule (wrong action order):
-
-```apache
-SecRule REQUEST_URI "@beginsWith /index.php" \
-    "phase:1,\  # Wrong: phase should come after id
-    id:1,\
-    deny,\
-    t:none,\
-    nolog"
-```
-
-
-Example of a correct rule:
-
-```apache
-SecRule REQUEST_URI "@beginsWith /index.php" \
-    "id:1,\  # Correct: id comes first
-    phase:1,\  # Correct: phase comes second
-    deny,\
-    t:none,\
-    nolog"
-```
 
 ## PlConsistency
 
@@ -498,37 +392,6 @@ SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
     setvar:'tx.inbound_anomaly_score_pl2=+%{tx.critical_anomaly_score}'"
     # Wrong: using pl2 variable on PL1
 ```
-
-## RuleTests
-
-**Source:** `src/crs_linter/rules/rule_tests.py`
-
-Check that rules have corresponding test cases.
-
-This rule verifies that each rule has at least one corresponding test
-case in the test suite. Rules without tests are flagged to ensure
-adequate test coverage.
-
-The check skips:
-- Paranoia level control rules (rule IDs with last two digits < 100)
-- Rules in the exclusion list (configured via -E flag)
-
-Example of a failing rule (no corresponding tests):
-
-```apache
-SecRule REQUEST_URI "@rx malicious" \
-    "id:942100,\  # Fails if no test case references rule 942100
-    phase:2,\
-    block,\
-    t:none,\
-    tag:OWASP_CRS"
-```
-
-
-To fix: Add a test case to your test suite that exercises this rule.
-
-Use the -E flag to provide a file with rule ID prefixes that should be
-excluded from this check.
 
 ## VariablesUsage
 
