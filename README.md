@@ -167,28 +167,33 @@ util/APPROVED_TAGS file.
 
 **Source:** `src/crs_linter/rules/check_capture.py`
 
-Check that every chained rule has a `capture` action if it uses TX.N variable.
+Check that rules using TX.N variables have a corresponding `capture` action.
 
-This rule ensures that chained rules using captured transaction variables
-(TX:0, TX:1, TX:2, etc.) have a corresponding `capture` action in a
-previous rule in the chain.
+This rule ensures that captured transaction variables (TX:0, TX:1, TX:2, etc.)
+are only used when a `capture` action has been defined in the rule chain.
 
-Example of a passing rule:
+TX.N variables can be referenced in multiple ways:
+1. As a rule target: `SecRule TX:1 "@eq attack"`
+2. In action arguments: `msg:'Matched: %{TX.1}'`, `logdata:'Data: %{TX.0}'`
+3. In operator arguments: `@rx %{TX.1}`
+4. In setvar assignments: `setvar:tx.foo=%{TX.1}`
+
+Example of a passing rule (with capture):
 
 ```apache
-SecRule ARGS "@rx attack" \
+SecRule ARGS "@rx (attack)" \
     "id:2,\
     phase:2,\
     deny,\
     capture,\
-    t:none,\
-    nolog,\
+    msg:'Attack detected: %{TX.1}',\
+    logdata:'Pattern: %{TX.0}',\
     chain"
     SecRule TX:1 "@eq attack"
 ```
 
 
-Example of a failing rule (missing capture):
+Example of a failing rule (missing capture for target):
 
 ```apache
 SecRule ARGS "@rx attack" \
@@ -198,8 +203,66 @@ SecRule ARGS "@rx attack" \
     t:none,\
     nolog,\
     chain"
-    SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without prior capture
+    SecRule TX:0 "@eq attack"  # Fails: uses TX:0 without capture
 ```
+
+
+Example of a failing rule (missing capture for action argument):
+
+```apache
+SecRule ARGS "@rx attack" \
+    "id:4,\
+    phase:2,\
+    deny,\
+    msg:'Matched: %{TX.1}'"  # Fails: references TX.1 without capture
+```
+
+
+This check addresses the issue found in CRS PR #4265 where %{TX.N} was
+used in action arguments without verifying that capture was defined.
+
+## CollectionCaptureChain
+
+**Source:** `src/crs_linter/rules/collection_capture_chain.py`
+
+Check for CVE-2026-21876 vulnerability pattern: capturing from collection variables with chained validation.
+
+This rule detects a dangerous pattern where:
+1. A rule captures from a collection variable (like MULTIPART_PART_HEADERS, REQUEST_HEADERS, ARGS, etc.)
+2. Uses the `capture` action
+3. Has a chained rule that validates the captured TX variable (TX:0, TX:1, etc.)
+
+This pattern is vulnerable because ModSecurity iterates through all items in the collection,
+overwriting the capture variable (TX:0, TX:1, etc.) on each iteration. The chained rule
+executes once after all iterations complete, so it only validates the LAST captured value.
+
+Example of vulnerable pattern (CVE-2026-21876):
+
+
+```apache
+SecRule MULTIPART_PART_HEADERS "@rx ^content-type\s*:\s*(.*)$" \
+    "id:922110,\
+    phase:2,\
+    block,\
+    capture,\
+    t:none,\
+    msg:'Multipart request with invalid charset',\
+    chain"
+    SecRule TX:1 "@rx ^(?:charset\s*=\s*['"]?(?!utf-8|iso-8859-1|iso-8859-15|windows-1252)[^'";]+)"
+```
+
+
+In this example, if there are multiple MULTIPART_PART_HEADERS, only the last one's
+charset will be validated. An attacker can place a malicious charset (e.g., UTF-7)
+in an early part and a legitimate charset (UTF-8) in the last part to bypass detection.
+
+Fix approaches:
+1. Use a single-pass validation without chains
+2. Validate within the same rule using a combined pattern
+3. Use setvar to accumulate values and validate the full set
+
+For more information, see:
+https://coreruleset.org/20260106/cve-2026-21876-critical-multipart-charset-bypass-fixed-in-crs-4.22.0-and-3.3.8/
 
 ## CrsTag
 

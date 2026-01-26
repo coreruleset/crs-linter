@@ -87,16 +87,16 @@ class VariablesUsage(Rule):
                     #  act_arg     <- tx.inbound_anomaly_score_threshold
                     #  act_atg_val <- 5
                     if "act_arg" in a and a["act_arg"] is not None:
-                        val_act = re.findall(r"%\{(tx.[^%]*)}", a["act_arg"], re.I)
+                        val_act = re.findall(r"%\{(tx.[^%]*)}", a["act_arg"], flags=re.I)
                     # Check act_arg_val for TX variable references in action argument values
                     # (e.g., the right-hand side of setvar assignments like "setvar:tx.foo=%{tx.bar}")
                     if "act_arg_val" in a and a["act_arg_val"] is not None:
                         val_act_arg = re.findall(
-                            r"%\{(tx.[^%]*)}", a["act_arg_val"], re.I
+                            r"%\{(tx.[^%]*)}", a["act_arg_val"], flags=re.I
                         )
                     for v in val_act + val_act_arg:
                         v = v.lower().replace("tx.", "")
-                        if not re.match(r"^\d$", v, re.I):
+                        if not re.match(r"^\d$", v, flags=re.I):
                             if (
                                 v not in globtxvars
                                 or phase < globtxvars[v]["phase"]
@@ -114,11 +114,11 @@ class VariablesUsage(Rule):
                                 globtxvars[v]["used"] = True
 
                 if "operator_argument" in d:
-                    oparg = re.findall(r"%\{(tx.[^%]*)}", d["operator_argument"], re.I)
+                    oparg = re.findall(r"%\{(tx.[^%]*)}", d["operator_argument"], flags=re.I)
                     if oparg:
                         for o in oparg:
                             o = o.lower()
-                            o = re.sub(r"tx\.", "", o, re.I)
+                            o = re.sub(r"tx\.", "", o, flags=re.I)
                             if (
                                 (
                                     o not in globtxvars
