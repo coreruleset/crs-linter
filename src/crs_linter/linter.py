@@ -18,6 +18,7 @@ from .rules import (
     ordered_actions,
     pl_consistency,
     rule_tests,
+    standalone_txn,
     variables_usage,
     version
 )
