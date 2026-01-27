@@ -15,6 +15,10 @@ class CollectionCaptureChain(Rule):
     overwriting the capture variable (TX:0, TX:1, etc.) on each iteration. The chained rule
     executes once after all iterations complete, so it only validates the LAST captured value.
 
+    Important: Accessing a SINGLE specific collection key (e.g., REQUEST_HEADERS:Referer) is SAFE
+    because no iteration occurs. However, multiple keys (e.g., REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie)
+    ARE vulnerable because ModSecurity iterates over them.
+
     Example of vulnerable pattern (CVE-2026-21876):
 
         SecRule MULTIPART_PART_HEADERS "@rx ^content-type\\s*:\\s*(.*)$" \\
@@ -30,6 +34,25 @@ class CollectionCaptureChain(Rule):
     In this example, if there are multiple MULTIPART_PART_HEADERS, only the last one's
     charset will be validated. An attacker can place a malicious charset (e.g., UTF-7)
     in an early part and a legitimate charset (UTF-8) in the last part to bypass detection.
+
+    Safe patterns (no iteration, no false positives):
+
+        # Single specific key - only matches one value
+        SecRule REQUEST_HEADERS:Referer "@rx (test)" \\
+            "id:1,capture,chain"
+            SecRule TX:1 "@rx evil"
+
+    Vulnerable patterns (iteration occurs):
+
+        # Multiple specific keys - iterates over both
+        SecRule REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie "@rx (test)" \\
+            "id:2,capture,chain"
+            SecRule TX:1 "@rx evil"
+
+        # No specific key - iterates over all headers
+        SecRule REQUEST_HEADERS "@rx (test)" \\
+            "id:3,capture,chain"
+            SecRule TX:1 "@rx evil"
 
     Fix approaches:
     1. Use a single-pass validation without chains
@@ -120,12 +143,30 @@ class CollectionCaptureChain(Rule):
                     ruleid = 0
 
                     # Check if this rule uses a collection variable
+                    # Collection iteration happens when:
+                    # 1. Collection without specific key (e.g., REQUEST_HEADERS)
+                    # 2. Multiple variables from same collection (e.g., REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie)
+                    # Single variable with specific key is safe (e.g., REQUEST_HEADERS:Referer)
+                    collection_vars = {}
                     for v in d["variables"]:
                         var_name = v["variable"].lower()
                         if var_name in self.collection_variables:
+                            var_part = v.get("variable_part", "")
+                            if var_name not in collection_vars:
+                                collection_vars[var_name] = []
+                            collection_vars[var_name].append(var_part)
+
+                    # Check if any collection is vulnerable to iteration
+                    for var_name, var_parts in collection_vars.items():
+                        # Vulnerable if: no specific key OR multiple keys
+                        if not var_parts[0] or len(var_parts) > 1:
                             uses_collection = True
                             collection_var_name = var_name.upper()
-                            rule_line = v.get("lineno", 0)
+                            # Add info about multiple keys if applicable
+                            if len(var_parts) > 1 and var_parts[0]:
+                                collection_var_name = f"{collection_var_name}:{var_parts[0]}|..."
+                            rule_line = d["variables"][0].get("lineno", 0)
+                            break
 
                 # Now reset chained flag and check for chain action
                 chained = False

@@ -236,6 +236,10 @@ This pattern is vulnerable because ModSecurity iterates through all items in the
 overwriting the capture variable (TX:0, TX:1, etc.) on each iteration. The chained rule
 executes once after all iterations complete, so it only validates the LAST captured value.
 
+Important: Accessing a SINGLE specific collection key (e.g., REQUEST_HEADERS:Referer) is SAFE
+because no iteration occurs. However, multiple keys (e.g., REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie)
+ARE vulnerable because ModSecurity iterates over them.
+
 Example of vulnerable pattern (CVE-2026-21876):
 
 
@@ -255,6 +259,37 @@ SecRule MULTIPART_PART_HEADERS "@rx ^content-type\s*:\s*(.*)$" \
 In this example, if there are multiple MULTIPART_PART_HEADERS, only the last one's
 charset will be validated. An attacker can place a malicious charset (e.g., UTF-7)
 in an early part and a legitimate charset (UTF-8) in the last part to bypass detection.
+
+Safe patterns (no iteration, no false positives):
+
+
+```apache
+# Single specific key - only matches one value
+SecRule REQUEST_HEADERS:Referer "@rx (test)" \
+    "id:1,capture,chain"
+    SecRule TX:1 "@rx evil"
+```
+
+
+Vulnerable patterns (iteration occurs):
+
+
+```apache
+# Multiple specific keys - iterates over both
+SecRule REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie "@rx (test)" \
+    "id:2,capture,chain"
+    SecRule TX:1 "@rx evil"
+```
+
+
+
+```apache
+# No specific key - iterates over all headers
+SecRule REQUEST_HEADERS "@rx (test)" \
+    "id:3,capture,chain"
+    SecRule TX:1 "@rx evil"
+```
+
 
 Fix approaches:
 1. Use a single-pass validation without chains

@@ -382,3 +382,65 @@ SecRule REQUEST_METHOD "@streq POST" \\
             f"Should not flag safe rules, but found: {collection_problems}"
     finally:
         os.unlink(temp_file)
+
+
+def test_safe_single_specific_key_passes():
+    """Test that capture from a single specific collection key is safe (no iteration)."""
+    safe_rule = (
+        'SecRule REQUEST_HEADERS:Referer "@rx (attack)" \\\n'
+        '    "id:4001,\\\n'
+        '    phase:2,\\\n'
+        '    deny,\\\n'
+        '    capture,\\\n'
+        '    chain"\n'
+        '    SecRule TX:1 "@eq attack"'
+    )
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+        f.write(safe_rule)
+        temp_file = f.name
+
+    try:
+        parsed = parse_config(safe_rule)
+        assert parsed is not None
+
+        linter = Linter(parsed, filename=temp_file, file_content=safe_rule)
+        problems = list(linter.run_checks())
+
+        collection_problems = [p for p in problems if p.rule == "collection_capture_chain"]
+        assert len(collection_problems) == 0, \
+            f"Should not flag single specific key (no iteration), but found: {collection_problems}"
+    finally:
+        os.unlink(temp_file)
+
+
+def test_vulnerable_multiple_specific_keys_fails():
+    """Test that multiple specific keys from same collection are vulnerable (iteration occurs)."""
+    vulnerable_rule = (
+        'SecRule REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie "@rx (attack)" \\\n'
+        '    "id:1007,\\\n'
+        '    phase:2,\\\n'
+        '    deny,\\\n'
+        '    capture,\\\n'
+        '    chain"\n'
+        '    SecRule TX:1 "@eq attack"'
+    )
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+        f.write(vulnerable_rule)
+        temp_file = f.name
+
+    try:
+        parsed = parse_config(vulnerable_rule)
+        assert parsed is not None
+
+        linter = Linter(parsed, filename=temp_file, file_content=vulnerable_rule)
+        problems = list(linter.run_checks())
+
+        collection_problems = [p for p in problems if p.rule == "collection_capture_chain"]
+        assert len(collection_problems) > 0, \
+            "Expected to detect vulnerable pattern with multiple specific keys"
+        assert "REQUEST_HEADERS" in collection_problems[0].desc
+        assert "1007" in collection_problems[0].desc
+    finally:
+        os.unlink(temp_file)
