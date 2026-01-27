@@ -413,6 +413,46 @@ SecRule REQUEST_HEADERS:Content-Length "!@rx ^\d+$" \
     # Wrong: using pl2 variable on PL1
 ```
 
+## StandaloneTxn
+
+**Source:** `src/crs_linter/rules/standalone_txn.py`
+
+Check that TX.N variables are not used as targets in standalone rules.
+
+This rule prevents TX.N capture group variables (TX:0, TX:1, TX:2, etc.)
+from being used as rule targets in standalone rules. Standalone rules have
+no control over what values exist in TX.N from previous unrelated rules,
+making such usage unpredictable and error-prone.
+
+TX.N variables should only be used in chained rules where the parent rule
+in the chain sets the value (typically via regex matching).
+
+Example of a failing rule (standalone rule using TX.N):
+
+```apache
+SecRule "TX:4" "@eq 1" \
+    "id:3,\
+    phase:2,\
+    deny"  # Fails: standalone rule using TX:4
+```
+
+
+Example of a passing rule (chained rule using TX.N):
+
+```apache
+SecRule ARGS "@rx (ab|cd)?(ef)" \
+    "id:1,\
+    phase:2,\
+    deny,\
+    chain"
+    SecRule "TX:1" "@eq ef"  # OK: TX:1 used in chained rule
+```
+
+
+Note: This check complements the CheckCapture rule, which ensures that
+TX.N usage requires a capture action. This rule specifically addresses
+the issue of TX.N in standalone rules where values are unpredictable.
+
 ## VariablesUsage
 
 **Source:** `src/crs_linter/rules/variables_usage.py`
