@@ -109,28 +109,27 @@ class CollectionCaptureChain(Rule):
             if d["type"].lower() != "secrule":
                 continue
 
-            # If this is a chained rule (continuation of previous rule)
-            if chained:
-                # Check if this chained rule references TX.N (captured values)
-                if uses_collection and has_capture:
-                    for v in d["variables"]:
-                        if (v["variable"].lower() == "tx" and
-                            v.get("variable_part") and
-                            self.tx_pattern.match(v["variable_part"])):
-                            # Found the vulnerable pattern!
-                            yield LintProblem(
-                                line=rule_line,
-                                end_line=rule_line,
-                                desc=(
-                                    f"rule {ruleid} captures from collection variable {collection_var_name} "
-                                    f"and validates TX:{v['variable_part']} in chained rule. "
-                                    "This only validates the LAST item in the collection. "
-                                    "See CVE-2026-21876."
-                                ),
-                                rule="collection_capture_chain",
-                            )
-                            # Only report once per rule chain
-                            break
+            # Check if this rule references TX.N (captured values)
+            # This must come after we've updated state from previous rules in the chain
+            if chained and uses_collection and has_capture:
+                for v in d["variables"]:
+                    if (v["variable"].lower() == "tx" and
+                        v.get("variable_part") and
+                        self.tx_pattern.match(v["variable_part"])):
+                        # Found the vulnerable pattern!
+                        yield LintProblem(
+                            line=rule_line,
+                            end_line=rule_line,
+                            desc=(
+                                f"rule {ruleid} captures from collection variable {collection_var_name} "
+                                f"and validates TX:{v['variable_part']} in chained rule. "
+                                "This only validates the LAST item in the collection. "
+                                "See CVE-2026-21876."
+                            ),
+                            rule="collection_capture_chain",
+                        )
+                        # Only report once per rule chain
+                        break
 
             # Process this rule's actions
             if "actions" in d:
@@ -142,21 +141,26 @@ class CollectionCaptureChain(Rule):
                     has_capture = False
                     ruleid = 0
 
-                    # Check if this rule uses a collection variable
-                    # Collection iteration happens when:
-                    # 1. Collection without specific key (e.g., REQUEST_HEADERS)
-                    # 2. Multiple variables from same collection (e.g., REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie)
-                    # Single variable with specific key is safe (e.g., REQUEST_HEADERS:Referer)
-                    collection_vars = {}
-                    for v in d["variables"]:
-                        var_name = v["variable"].lower()
-                        if var_name in self.collection_variables:
-                            var_part = v.get("variable_part", "")
-                            if var_name not in collection_vars:
-                                collection_vars[var_name] = []
-                            collection_vars[var_name].append(var_part)
+                # Check if this rule uses a collection variable (check for ALL rules, not just first)
+                # Collection iteration happens when:
+                # 1. Collection without specific key (e.g., REQUEST_HEADERS)
+                # 2. Multiple variables from same collection (e.g., REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie)
+                # Single variable with specific key is safe (e.g., REQUEST_HEADERS:Referer)
+                collection_vars = {}
+                for v in d["variables"]:
+                    var_name = v["variable"].lower()
+                    if var_name in self.collection_variables:
+                        var_part = v.get("variable_part", "")
+                        if var_name not in collection_vars:
+                            collection_vars[var_name] = []
+                        collection_vars[var_name].append(var_part)
 
-                    # Check if any collection is vulnerable to iteration
+                # Check if any collection is vulnerable to iteration
+                if collection_vars:
+                    # Reset uses_collection for this rule (will be set to True if vulnerable)
+                    uses_collection = False
+                    collection_var_name = None
+
                     for var_name, var_parts in collection_vars.items():
                         # Vulnerable if: no specific key OR multiple keys
                         if not var_parts[0] or len(var_parts) > 1:
@@ -167,6 +171,11 @@ class CollectionCaptureChain(Rule):
                                 collection_var_name = f"{collection_var_name}:{var_parts[0]}|..."
                             rule_line = d["variables"][0].get("lineno", 0)
                             break
+                else:
+                    # No collection variables in this rule - if chained, this overwrites any previous capture
+                    if chained:
+                        uses_collection = False
+                        collection_var_name = None
 
                 # Now reset chained flag and check for chain action
                 chained = False

@@ -444,3 +444,47 @@ def test_vulnerable_multiple_specific_keys_fails():
         assert "1007" in collection_problems[0].desc
     finally:
         os.unlink(temp_file)
+
+
+def test_safe_intermediate_single_value_capture_passes():
+    """Test rule 943110 pattern: collection capture overwritten by single-value capture is safe.
+
+    This tests the pattern where:
+    1. First rule captures from a collection (ARGS)
+    2. Second chained rule captures from a single specific value (REQUEST_HEADERS:Referer)
+    3. Third chained rule validates TX:1
+
+    This is SAFE because TX:1 at validation time contains the Referer (single value),
+    not the ARGS (collection). The second capture overwrites the first.
+    """
+    safe_rule = (
+        'SecRule ARGS "@rx attack" \\\n'
+        '    "id:943110,\\\n'
+        '    phase:2,\\\n'
+        '    block,\\\n'
+        '    capture,\\\n'
+        '    log,\\\n'
+        '    chain"\n'
+        '    SecRule REQUEST_HEADERS:Referer "@rx (https?://[^/]+)" \\\n'
+        '        "capture,\\\n'
+        '        chain"\n'
+        '        SecRule TX:1 "!@endsWith %{request_headers.host}" \\\n'
+        '            "setvar:\'tx.inbound_anomaly_score_pl1=+%{tx.critical_anomaly_score}\'"\n'
+    )
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+        f.write(safe_rule)
+        temp_file = f.name
+
+    try:
+        parsed = parse_config(safe_rule)
+        assert parsed is not None
+
+        linter = Linter(parsed, filename=temp_file, file_content=safe_rule)
+        problems = list(linter.run_checks())
+
+        collection_problems = [p for p in problems if p.rule == "collection_capture_chain"]
+        assert len(collection_problems) == 0, \
+            f"Should not flag rule 943110 pattern (intermediate single-value capture), but found: {collection_problems}"
+    finally:
+        os.unlink(temp_file)
