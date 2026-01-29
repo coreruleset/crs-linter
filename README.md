@@ -396,40 +396,6 @@ SecRuleUpdateTargetById 942100 "!REQUEST_COOKIES:session_id"
 
 See: https://github.com/coreruleset/coreruleset/pull/4378
 
-## OrderedActions
-
-**Source:** `src/crs_linter/rules/ordered_actions.py`
-
-Check that actions are in the correct order.
-
-This rule verifies that actions in rules follow the CRS-specified order.
-The first action must be 'id', followed by 'phase', and then other
-actions in their designated order.
-
-Example of a failing rule (wrong action order):
-
-```apache
-SecRule REQUEST_URI "@beginsWith /index.php" \
-    "phase:1,\  # Wrong: phase should come after id
-    id:1,\
-    deny,\
-    t:none,\
-    nolog"
-```
-
-
-Example of a correct rule:
-
-```apache
-SecRule REQUEST_URI "@beginsWith /index.php" \
-    "id:1,\  # Correct: id comes first
-    phase:1,\  # Correct: phase comes second
-    deny,\
-    t:none,\
-    nolog"
-```
-
->>>>>>> 0bea3ef (feat: add lint for no negated request_cookies)
 ## PlConsistency
 
 **Source:** `src/crs_linter/rules/pl_consistency.py`
