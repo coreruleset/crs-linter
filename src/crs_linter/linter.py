@@ -9,6 +9,7 @@ from .rules_metadata import get_rules
 from .rules import (
     approved_tags,
     check_capture,
+    collection_capture_chain,
     crs_tag,
     deprecated,
     duplicated,
