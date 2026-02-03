@@ -133,7 +133,11 @@ def find_next_rule_range(lines: list, start_idx: int) -> tuple:
         if chained_start > 0:
             # Recursively find the end of the chained rule
             # (it might also have chain action)
-            _, chained_end = find_next_rule_range(lines, chained_start - 2)
+            # Pass max(0, chained_start - 2) to ensure non-negative index
+            # chained_start is 1-based, so chained_start - 2 gives us the line before
+            # the chained rule in 0-based indexing
+            search_start_idx = max(0, chained_start - 2)
+            _, chained_end = find_next_rule_range(lines, search_start_idx)
             if chained_end > 0:
                 end_idx = chained_end - 1  # Convert to 0-based
 
@@ -158,9 +162,12 @@ def has_chain_action(lines: list, start_idx: int, end_idx: int) -> bool:
     # Simple pattern to detect chain action
     # This is a heuristic and may not be perfect, but should work for most cases
     # Look for 'chain' as an action (inside quotes, after comma or at start)
-    import re
-    # Match 'chain' or 'chain,' within action strings
-    chain_pattern = re.compile(r'[,"\s]chain[,"\s]', re.IGNORECASE)
+    # Match 'chain' or 'chain,' within action strings, handling edge cases:
+    # - "chain" at start: "chain,other"
+    # - "chain" at end: "other,chain"
+    # - "chain" in middle: "a,chain,b"
+    # - standalone: "chain"
+    chain_pattern = re.compile(r'[,"\s]chain(?:[,"\s]|$)', re.IGNORECASE)
     return bool(chain_pattern.search(rule_text))
 
 
