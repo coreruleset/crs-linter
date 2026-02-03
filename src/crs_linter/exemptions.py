@@ -216,16 +216,10 @@ def should_exempt_problem(problem, exemptions: Dict[int, tuple]) -> bool:
         return False
 
     # Check if the problem line falls within any exempted range
-    # Early break when exemption is found
+    # No early breaking since exemptions dict is not guaranteed to be sorted
     for start_line, (end_line, rule_names) in exemptions.items():
-        # Early skip if problem is before this range
-        if problem.line < start_line:
-            continue
-        # Early break if problem is after this range (assuming sorted)
-        if problem.line > end_line:
-            continue
-        # Check if rule matches
-        if problem.rule in rule_names:
-            return True
+        if start_line <= problem.line <= end_line:
+            if problem.rule in rule_names:
+                return True
 
     return False
