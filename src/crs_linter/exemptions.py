@@ -11,7 +11,7 @@ The exemption comment applies to the next non-comment, non-blank line.
 """
 
 import re
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 
 # Regex pattern for exemption comments
 # Format: #crs-linter:ignore:rule1,rule2,rule3
@@ -22,16 +22,16 @@ EXEMPTION_PATTERN = re.compile(
 )
 
 
-def parse_exemptions(file_content: str) -> Dict[int, Set[str]]:
+def parse_exemptions(file_content: Optional[str]) -> Dict[int, tuple[int, Set[str]]]:
     """
     Parse exemption comments from file content.
 
     Args:
-        file_content: Raw file content as string
+        file_content: Raw file content as string, or None
 
     Returns:
-        Dictionary mapping line ranges to sets of exempted rule names.
-        The dictionary maps start line to (end_line, rule_names_set).
+        Dictionary mapping start line numbers to tuples of (end_line, rule_names_set).
+        Each entry represents an exemption range with the set of exempted rule names.
 
     Example:
         >>> content = '''
@@ -142,9 +142,16 @@ def should_exempt_problem(problem, exemptions: Dict[int, tuple]) -> bool:
         return False
 
     # Check if the problem line falls within any exempted range
+    # Early break when exemption is found
     for start_line, (end_line, rule_names) in exemptions.items():
-        if start_line <= problem.line <= end_line:
-            if problem.rule in rule_names:
-                return True
+        # Early skip if problem is before this range
+        if problem.line < start_line:
+            continue
+        # Early break if problem is after this range (assuming sorted)
+        if problem.line > end_line:
+            continue
+        # Check if rule matches
+        if problem.rule in rule_names:
+            return True
 
     return False

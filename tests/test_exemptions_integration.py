@@ -4,9 +4,6 @@ Integration tests for exemption mechanism.
 Tests end-to-end functionality with actual ModSecurity rules.
 """
 
-import pytest
-import tempfile
-import os
 from crs_linter.linter import Linter, parse_config
 
 

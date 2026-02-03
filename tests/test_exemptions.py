@@ -2,7 +2,6 @@
 Unit tests for exemption mechanism.
 """
 
-import pytest
 from crs_linter.exemptions import parse_exemptions, find_next_rule_line, should_exempt_problem
 from crs_linter.lint_problem import LintProblem
 
