@@ -11,7 +11,7 @@ The exemption comment applies to the next non-comment, non-blank line.
 """
 
 import re
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 
 # Regex pattern for exemption comments
 # Format: #crs-linter:ignore:rule1,rule2,rule3
@@ -22,16 +22,16 @@ EXEMPTION_PATTERN = re.compile(
 )
 
 
-def parse_exemptions(file_content: str) -> Dict[int, Set[str]]:
+def parse_exemptions(file_content: Optional[str]) -> Dict[int, tuple[int, Set[str]]]:
     """
     Parse exemption comments from file content.
 
     Args:
-        file_content: Raw file content as string
+        file_content: Raw file content as string, or None
 
     Returns:
-        Dictionary mapping line ranges to sets of exempted rule names.
-        The dictionary maps start line to (end_line, rule_names_set).
+        Dictionary mapping start line numbers to tuples of (end_line, rule_names_set).
+        Each entry represents an exemption range with the set of exempted rule names.
 
     Example:
         >>> content = '''
@@ -99,7 +99,8 @@ def find_next_rule_range(lines: list, start_idx: int) -> tuple:
     Find the line range of the next rule after start_idx.
 
     This function finds the start and end lines of a ModSecurity rule,
-    accounting for multi-line rules with backslash continuation.
+    accounting for multi-line rules with backslash continuation and
+    chained rules (rules with 'chain' action).
 
     Args:
         lines: List of file lines
@@ -120,11 +121,87 @@ def find_next_rule_range(lines: list, start_idx: int) -> tuple:
     for idx in range(start_idx, len(lines)):
         line = lines[idx].rstrip()
         end_idx = idx
-        # If line doesn't end with backslash, this is the last line
+        # If line doesn't end with backslash, this is the last line of this part
         if not line.endswith('\\'):
             break
 
+    # Check if this rule has a 'chain' action
+    # If so, extend the range to include chained rules
+    if has_chain_action(lines, start_idx, end_idx):
+        # Find the next chained rule (indented SecRule after current rule)
+        chained_start = find_next_chained_rule(lines, end_idx)
+        if chained_start > 0:
+            # Recursively find the end of the chained rule
+            # (it might also have chain action)
+            # We need to pass the index BEFORE chained_start to find_next_rule_range
+            # because that function looks for the NEXT rule after start_idx.
+            # chained_start is 1-based line number, so:
+            #   - chained_start - 1 converts to 0-based index of that line
+            #   - chained_start - 2 is the index of the line before (where we start searching from)
+            # We use max(0, ...) to ensure we don't get negative indices.
+            search_start_idx = max(0, chained_start - 2)
+            _, chained_end = find_next_rule_range(lines, search_start_idx)
+            if chained_end > 0:
+                end_idx = chained_end - 1  # Convert to 0-based
+
     return (start_line, end_idx + 1)  # Both 1-based
+
+
+def has_chain_action(lines: list, start_idx: int, end_idx: int) -> bool:
+    """
+    Check if a rule has a 'chain' action.
+
+    Args:
+        lines: List of file lines
+        start_idx: Starting index (0-based) of the rule
+        end_idx: Ending index (0-based) of the rule
+
+    Returns:
+        True if the rule contains a 'chain' action, False otherwise
+    """
+    # Combine all lines of the rule
+    rule_text = ' '.join(lines[start_idx:end_idx + 1])
+    
+    # Pattern to detect chain action within ModSecurity action strings
+    # The character class [,"\s] matches comma, quote, or whitespace
+    # This works for all cases:
+    # - "chain,other" - matches because " precedes chain
+    # - "other,chain" - matches because , precedes chain
+    # - "chain" - matches because " precedes chain
+    # - " chain" - matches because space precedes chain
+    # The (?:[,"\s]|$) matches comma, quote, space, or end of string after chain
+    chain_pattern = re.compile(r'[,"\s]chain(?:[,"\s]|$)', re.IGNORECASE)
+    return bool(chain_pattern.search(rule_text))
+
+
+def find_next_chained_rule(lines: list, after_idx: int) -> int:
+    """
+    Find the next chained SecRule after the given index.
+
+    Chained rules are typically indented and immediately follow the parent rule.
+
+    Args:
+        lines: List of file lines
+        after_idx: Index to start searching after (0-based)
+
+    Returns:
+        Line number (1-based) of the chained rule, or 0 if not found
+    """
+    for idx in range(after_idx + 1, len(lines)):
+        line = lines[idx].strip()
+        # Skip blank lines
+        if not line:
+            continue
+        # Skip comments
+        if line.startswith('#'):
+            continue
+        # Check if this is a SecRule (chained rules are also SecRule directives)
+        if line.startswith('SecRule'):
+            return idx + 1  # Convert to 1-based
+        # If we hit a non-comment, non-blank, non-SecRule line, stop
+        # (this means we've moved past any potential chained rule)
+        break
+    return 0
 
 
 def should_exempt_problem(problem, exemptions: Dict[int, tuple]) -> bool:
@@ -142,6 +219,7 @@ def should_exempt_problem(problem, exemptions: Dict[int, tuple]) -> bool:
         return False
 
     # Check if the problem line falls within any exempted range
+    # No early breaking since exemptions dict is not guaranteed to be sorted
     for start_line, (end_line, rule_names) in exemptions.items():
         if start_line <= problem.line <= end_line:
             if problem.rule in rule_names:
