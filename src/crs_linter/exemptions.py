@@ -133,9 +133,12 @@ def find_next_rule_range(lines: list, start_idx: int) -> tuple:
         if chained_start > 0:
             # Recursively find the end of the chained rule
             # (it might also have chain action)
-            # Pass max(0, chained_start - 2) to ensure non-negative index
-            # chained_start is 1-based, so chained_start - 2 gives us the line before
-            # the chained rule in 0-based indexing
+            # We need to pass the index BEFORE chained_start to find_next_rule_range
+            # because that function looks for the NEXT rule after start_idx.
+            # chained_start is 1-based line number, so:
+            #   - chained_start - 1 converts to 0-based index of that line
+            #   - chained_start - 2 is the index of the line before (where we start searching from)
+            # We use max(0, ...) to ensure we don't get negative indices.
             search_start_idx = max(0, chained_start - 2)
             _, chained_end = find_next_rule_range(lines, search_start_idx)
             if chained_end > 0:
@@ -159,14 +162,14 @@ def has_chain_action(lines: list, start_idx: int, end_idx: int) -> bool:
     # Combine all lines of the rule
     rule_text = ' '.join(lines[start_idx:end_idx + 1])
     
-    # Simple pattern to detect chain action
-    # This is a heuristic and may not be perfect, but should work for most cases
-    # Look for 'chain' as an action (inside quotes, after comma or at start)
-    # Match 'chain' or 'chain,' within action strings, handling edge cases:
-    # - "chain" at start: "chain,other"
-    # - "chain" at end: "other,chain"
-    # - "chain" in middle: "a,chain,b"
-    # - standalone: "chain"
+    # Pattern to detect chain action within ModSecurity action strings
+    # The character class [,"\s] matches comma, quote, or whitespace
+    # This works for all cases:
+    # - "chain,other" - matches because " precedes chain
+    # - "other,chain" - matches because , precedes chain
+    # - "chain" - matches because " precedes chain
+    # - " chain" - matches because space precedes chain
+    # The (?:[,"\s]|$) matches comma, quote, space, or end of string after chain
     chain_pattern = re.compile(r'[,"\s]chain(?:[,"\s]|$)', re.IGNORECASE)
     return bool(chain_pattern.search(rule_text))
 
