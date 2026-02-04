@@ -15,6 +15,7 @@ from .rules import (
     ignore_case,
     indentation,
     lowercase_ignorecase,
+    no_negated_request_cookies,
     ordered_actions,
     pl_consistency,
     rule_tests,
