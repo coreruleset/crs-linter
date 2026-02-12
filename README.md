@@ -221,6 +221,84 @@ SecRule ARGS "@rx attack" \
 This check addresses the issue found in CRS PR #4265 where %{TX.N} was
 used in action arguments without verifying that capture was defined.
 
+## CollectionCaptureChain
+
+**Source:** `src/crs_linter/rules/collection_capture_chain.py`
+
+Check for CVE-2026-21876 vulnerability pattern: capturing from collection variables with chained validation.
+
+This rule detects a dangerous pattern where:
+1. A rule captures from a collection variable (like MULTIPART_PART_HEADERS, REQUEST_HEADERS, ARGS, etc.)
+2. Uses the `capture` action
+3. Has a chained rule that validates the captured TX variable (TX:0, TX:1, etc.)
+
+This pattern is vulnerable because ModSecurity iterates through all items in the collection,
+overwriting the capture variable (TX:0, TX:1, etc.) on each iteration. The chained rule
+executes once after all iterations complete, so it only validates the LAST captured value.
+
+Important: Accessing a SINGLE specific collection key (e.g., REQUEST_HEADERS:Referer) is SAFE
+because no iteration occurs. However, multiple keys (e.g., REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie)
+ARE vulnerable because ModSecurity iterates over them.
+
+Example of vulnerable pattern (CVE-2026-21876):
+
+
+```apache
+SecRule MULTIPART_PART_HEADERS "@rx ^content-type\s*:\s*(.*)$" \
+    "id:922110,\
+    phase:2,\
+    block,\
+    capture,\
+    t:none,\
+    msg:'Multipart request with invalid charset',\
+    chain"
+    SecRule TX:1 "@rx ^(?:charset\s*=\s*['"]?(?!utf-8|iso-8859-1|iso-8859-15|windows-1252)[^'";]+)"
+```
+
+
+In this example, if there are multiple MULTIPART_PART_HEADERS, only the last one's
+charset will be validated. An attacker can place a malicious charset (e.g., UTF-7)
+in an early part and a legitimate charset (UTF-8) in the last part to bypass detection.
+
+Safe patterns (no iteration, no false positives):
+
+
+```apache
+# Single specific key - only matches one value
+SecRule REQUEST_HEADERS:Referer "@rx (test)" \
+    "id:1,capture,chain"
+    SecRule TX:1 "@rx evil"
+```
+
+
+Vulnerable patterns (iteration occurs):
+
+
+```apache
+# Multiple specific keys - iterates over both
+SecRule REQUEST_HEADERS:Referer|REQUEST_HEADERS:Cookie "@rx (test)" \
+    "id:2,capture,chain"
+    SecRule TX:1 "@rx evil"
+```
+
+
+
+```apache
+# No specific key - iterates over all headers
+SecRule REQUEST_HEADERS "@rx (test)" \
+    "id:3,capture,chain"
+    SecRule TX:1 "@rx evil"
+```
+
+
+Fix approaches:
+1. Use a single-pass validation without chains
+2. Validate within the same rule using a combined pattern
+3. Use setvar to accumulate values and validate the full set
+
+For more information, see:
+https://coreruleset.org/20260106/cve-2026-21876-critical-multipart-charset-bypass-fixed-in-crs-4.22.0-and-3.3.8/
+
 ## CrsTag
 
 **Source:** `src/crs_linter/rules/crs_tag.py`
