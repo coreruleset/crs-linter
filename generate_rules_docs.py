@@ -12,47 +12,80 @@ Options:
     --check     Check if generated docs match current README (for CI)
 """
 
+import ast
 import sys
-import inspect
 import re
 from pathlib import Path
 from typing import List, Dict, Tuple
 
 
+def _find_name_override(class_node: ast.ClassDef) -> str | None:
+    """
+    Look for a self.name = "..." assignment in __init__ to detect
+    rules that override the default name derived from the module.
+    """
+    for node in ast.walk(class_node):
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if (
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == "self"
+                and target.attr == "name"
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                return node.value.value
+    return None
+
+
 def extract_rule_docs() -> List[Dict[str, str]]:
     """
-    Extract docstrings from all registered rule classes.
+    Extract docstrings from rule classes using AST parsing.
 
-    Uses the Rules singleton to get all registered rules, ensuring the
-    documentation reflects exactly the rules that the linter knows about.
+    Parses each rule .py file with the ast module to find Rule subclasses
+    and their docstrings, without importing any modules. This avoids
+    requiring external dependencies (msc_pyparser, dulwich, etc.).
 
     Returns:
-        List of dicts with 'name', 'module_name', and 'docstring' keys,
-        sorted by module name.
+        List of dicts with 'name', 'module_name', 'rule_name', and
+        'docstring' keys, sorted by module name.
     """
-    # Add src to path so we can import the modules
-    src_path = Path(__file__).parent / "src"
-    if str(src_path) not in sys.path:
-        sys.path.insert(0, str(src_path))
-
-    # Import linter to trigger all rule auto-registrations
-    import crs_linter.linter  # noqa: F401
-    from crs_linter.rules_metadata import get_registered_rules
+    rules_dir = Path(__file__).parent / "src" / "crs_linter" / "rules"
 
     docs = []
-    for rule in get_registered_rules():
-        cls = rule.__class__
-        module_name = cls.__module__.rsplit('.', 1)[-1]
-        docstring = inspect.getdoc(cls)
-        if docstring:
-            docs.append({
-                'name': cls.__name__,
-                'module_name': module_name,
-                'docstring': docstring
-            })
+    for rule_file in sorted(rules_dir.glob("*.py")):
+        if rule_file.name.startswith("__"):
+            continue
+
+        module_name = rule_file.stem
+        tree = ast.parse(rule_file.read_text(encoding="utf-8"), filename=str(rule_file))
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            # Check that the class inherits from Rule
+            if not any(
+                (isinstance(b, ast.Name) and b.id == "Rule")
+                or (isinstance(b, ast.Attribute) and b.attr == "Rule")
+                for b in node.bases
+            ):
+                continue
+
+            docstring = ast.get_docstring(node)
+            if docstring:
+                # Use overridden name if present, otherwise module name
+                rule_name = _find_name_override(node) or module_name
+                docs.append({
+                    "name": node.name,
+                    "module_name": module_name,
+                    "rule_name": rule_name,
+                    "docstring": docstring,
+                })
 
     # Sort by module name for consistent ordering
-    docs.sort(key=lambda d: d['module_name'])
+    docs.sort(key=lambda d: d["module_name"])
     return docs
 
 
@@ -284,25 +317,24 @@ def update_readme(sections: Dict[str, str], check_only: bool = False) -> bool:
     return True
 
 
-def format_exemption_rule_list() -> str:
+def format_exemption_rule_list(docs: List[Dict[str, str]]) -> str:
     """
     Generate a Markdown table of valid rule names for the exemptions section.
+
+    Args:
+        docs: List of rule documentation dicts (from extract_rule_docs)
 
     Returns:
         Formatted Markdown string with the list of valid rule names
     """
-    from crs_linter.rules_metadata import get_registered_rules
-
     lines = [
         "The following rule names can be used in exemption comments:\n",
         "| Rule name | Description |",
         "| --- | --- |",
     ]
-    # Build table from registered rules, sorted by name
-    rules = sorted(get_registered_rules(), key=lambda r: r.name)
-    for rule in rules:
-        class_name = rule.__class__.__name__
-        lines.append(f"| `{rule.name}` | [{class_name}](#{class_name.lower()}) |")
+    # Build table from docs, sorted by rule_name
+    for doc in sorted(docs, key=lambda d: d["rule_name"]):
+        lines.append(f"| `{doc['rule_name']}` | [{doc['name']}](#{doc['name'].lower()}) |")
 
     return "\n".join(lines)
 
@@ -322,7 +354,7 @@ def main():
 
     print("Generating Markdown documentation...")
     generated_rules = format_rule_docs(docs)
-    generated_exemptions = format_exemption_rule_list()
+    generated_exemptions = format_exemption_rule_list(docs)
 
     print("Updating README.md...")
     success = update_readme({
