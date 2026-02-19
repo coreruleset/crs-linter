@@ -13,7 +13,6 @@ Options:
 """
 
 import sys
-import importlib
 import inspect
 import re
 from pathlib import Path
@@ -22,45 +21,38 @@ from typing import List, Dict, Tuple
 
 def extract_rule_docs() -> List[Dict[str, str]]:
     """
-    Extract docstrings from all rule classes in src/crs_linter/rules/.
+    Extract docstrings from all registered rule classes.
+
+    Uses the Rules singleton to get all registered rules, ensuring the
+    documentation reflects exactly the rules that the linter knows about.
 
     Returns:
-        List of dicts with 'name', 'module_name', and 'docstring' keys.
+        List of dicts with 'name', 'module_name', and 'docstring' keys,
+        sorted by module name.
     """
     # Add src to path so we can import the modules
     src_path = Path(__file__).parent / "src"
     if str(src_path) not in sys.path:
         sys.path.insert(0, str(src_path))
 
-    rules_dir = Path(__file__).parent / "src" / "crs_linter" / "rules"
+    # Import linter to trigger all rule auto-registrations
+    import crs_linter.linter  # noqa: F401
+    from crs_linter.rules_metadata import get_registered_rules
+
     docs = []
+    for rule in get_registered_rules():
+        cls = rule.__class__
+        module_name = cls.__module__.rsplit('.', 1)[-1]
+        docstring = inspect.getdoc(cls)
+        if docstring:
+            docs.append({
+                'name': cls.__name__,
+                'module_name': module_name,
+                'docstring': docstring
+            })
 
-    # Get all Python files in the rules directory
-    rule_files = sorted(rules_dir.glob("*.py"))
-
-    for rule_file in rule_files:
-        if rule_file.name == "__init__.py":
-            continue
-
-        try:
-            module_name = f"crs_linter.rules.{rule_file.stem}"
-            module = importlib.import_module(module_name)
-
-            # Find classes that inherit from Rule (have a 'check' method)
-            for name, obj in inspect.getmembers(module, inspect.isclass):
-                # Check if it's defined in this module and has a check method
-                if obj.__module__ == module_name and hasattr(obj, 'check'):
-                    docstring = inspect.getdoc(obj)
-                    if docstring:
-                        docs.append({
-                            'name': name,
-                            'module_name': rule_file.stem,
-                            'docstring': docstring
-                        })
-                    break  # Only one rule class per file
-        except Exception as e:
-            print(f"Warning: Could not import {rule_file.name}: {e}", file=sys.stderr)
-
+    # Sort by module name for consistent ordering
+    docs.sort(key=lambda d: d['module_name'])
     return docs
 
 

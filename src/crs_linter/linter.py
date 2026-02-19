@@ -4,7 +4,7 @@ import os.path
 import sys
 from .lint_problem import LintProblem
 from .rules_metadata import get_rules
-from .exemptions import parse_exemptions, should_exempt_problem
+from .exemptions import parse_exemptions, should_exempt_problem, validate_exemption_names
 
 # Import all rules to trigger auto-registration via metaclass
 from .rules import (
@@ -44,6 +44,14 @@ class Linter:
 
         # Parse exemption comments from file content
         self.exemptions = parse_exemptions(file_content) if file_content else {}
+
+        # Validate exemption rule names against registered rules
+        if self.exemptions:
+            warnings = validate_exemption_names(
+                self.exemptions, self.rules.get_rule_names()
+            )
+            for warning in warnings:
+                print(f"Warning: {filename}: {warning}", file=sys.stderr)
 
     def _get_rule_configs(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None):
         """

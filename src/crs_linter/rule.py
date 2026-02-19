@@ -28,7 +28,7 @@ class Rule(ABC, metaclass=RuleMeta):
     """Base class for all linting rules."""
     
     def __init__(self):
-        self.name = self.__class__.__name__.lower()
+        self.name = type(self).__module__.rsplit('.', 1)[-1]
         self.success_message = f"{self.name} check ok."
         self.error_message = f"{self.name} check found error(s)"
         self.error_title = self.name.replace('_', ' ').title()

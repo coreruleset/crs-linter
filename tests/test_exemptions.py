@@ -2,7 +2,12 @@
 Unit tests for exemption mechanism.
 """
 
-from crs_linter.exemptions import parse_exemptions, find_next_rule_line, should_exempt_problem
+from crs_linter.exemptions import (
+    parse_exemptions,
+    find_next_rule_line,
+    should_exempt_problem,
+    validate_exemption_names,
+)
 from crs_linter.lint_problem import LintProblem
 
 
@@ -279,3 +284,51 @@ class TestShouldExemptProblem:
         problem = LintProblem(line=10, end_line=10, desc="Test", rule="lowercase_ignorecase")
         exemptions = {3: (7, {'lowercase_ignorecase'})}
         assert should_exempt_problem(problem, exemptions) is False
+
+
+class TestValidateExemptionNames:
+    """Test exemption rule name validation."""
+
+    def test_all_valid_names(self):
+        """Test that valid names produce no warnings."""
+        exemptions = {3: (5, {'deprecated', 'version'})}
+        valid = {'deprecated', 'version', 'indentation'}
+        warnings = validate_exemption_names(exemptions, valid)
+        assert warnings == []
+
+    def test_unknown_name_produces_warning(self):
+        """Test that an unknown name produces a warning."""
+        exemptions = {3: (5, {'pinapple_on_pizza'})}
+        valid = {'deprecated', 'version'}
+        warnings = validate_exemption_names(exemptions, valid)
+        assert len(warnings) == 1
+        assert 'pinapple_on_pizza' in warnings[0]
+        assert 'line 3' in warnings[0]
+
+    def test_mixed_valid_and_invalid(self):
+        """Test mix of valid and invalid names."""
+        exemptions = {3: (5, {'deprecated', 'fake_rule'})}
+        valid = {'deprecated', 'version'}
+        warnings = validate_exemption_names(exemptions, valid)
+        assert len(warnings) == 1
+        assert 'fake_rule' in warnings[0]
+
+    def test_multiple_invalid_names(self):
+        """Test multiple invalid names in one exemption."""
+        exemptions = {3: (5, {'bad_one', 'bad_two'})}
+        valid = {'deprecated'}
+        warnings = validate_exemption_names(exemptions, valid)
+        assert len(warnings) == 2
+
+    def test_empty_exemptions(self):
+        """Test empty exemptions produce no warnings."""
+        warnings = validate_exemption_names({}, {'deprecated'})
+        assert warnings == []
+
+    def test_warning_includes_valid_names(self):
+        """Test that warning message lists valid names."""
+        exemptions = {3: (5, {'unknown'})}
+        valid = {'deprecated', 'version'}
+        warnings = validate_exemption_names(exemptions, valid)
+        assert 'deprecated' in warnings[0]
+        assert 'version' in warnings[0]

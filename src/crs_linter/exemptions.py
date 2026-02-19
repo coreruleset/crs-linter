@@ -204,6 +204,31 @@ def find_next_chained_rule(lines: list, after_idx: int) -> int:
     return 0
 
 
+def validate_exemption_names(
+    exemptions: Dict[int, tuple[int, Set[str]]],
+    valid_names: Set[str],
+) -> list[str]:
+    """
+    Validate that exemption rule names are valid registered rule names.
+
+    Args:
+        exemptions: Dictionary mapping start lines to (end_line, rule_names_set) tuples
+        valid_names: Set of valid rule names from the Rules singleton
+
+    Returns:
+        List of warning messages for unknown rule names
+    """
+    warnings = []
+    for start_line, (_, rule_names) in exemptions.items():
+        for name in sorted(rule_names):
+            if name not in valid_names:
+                warnings.append(
+                    f"line {start_line}: unknown exemption rule name '{name}'; "
+                    f"valid names are: {', '.join(sorted(valid_names))}"
+                )
+    return warnings
+
+
 def should_exempt_problem(problem, exemptions: Dict[int, tuple]) -> bool:
     """
     Check if a lint problem should be exempted based on exemption comments.
