@@ -185,18 +185,19 @@ def format_rule_docs(docs: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
-def find_markers(content: str) -> Tuple[int, int]:
+def find_markers(content: str, section: str) -> Tuple[int, int]:
     """
-    Find the start and end positions of the generated docs markers.
+    Find the start and end positions of a generated docs section.
 
     Args:
         content: README.md content
+        section: Section name (e.g., 'RULES_DOCS', 'EXEMPTIONS_DOCS')
 
     Returns:
         Tuple of (start_pos, end_pos) or (-1, -1) if markers not found
     """
-    start_marker = "<!-- GENERATED_RULES_DOCS_START -->"
-    end_marker = "<!-- GENERATED_RULES_DOCS_END -->"
+    start_marker = f"<!-- GENERATED_{section}_START -->"
+    end_marker = f"<!-- GENERATED_{section}_END -->"
 
     start_pos = content.find(start_marker)
     end_pos = content.find(end_marker)
@@ -208,12 +209,42 @@ def find_markers(content: str) -> Tuple[int, int]:
     return (start_pos + len(start_marker), end_pos)
 
 
-def update_readme(generated_docs: str, check_only: bool = False) -> bool:
+def update_section(content: str, section: str, generated: str) -> Tuple[str, bool]:
     """
-    Update README.md with generated documentation.
+    Update a single generated section in the README content.
 
     Args:
-        generated_docs: The generated documentation string
+        content: Current README content
+        section: Section name (e.g., 'RULES_DOCS', 'EXEMPTIONS_DOCS')
+        generated: New generated content for this section
+
+    Returns:
+        Tuple of (updated_content, changed). changed is True if content was modified.
+    """
+    start_pos, end_pos = find_markers(content, section)
+
+    if start_pos == -1:
+        print(f"Error: Could not find {section} markers in README.md", file=sys.stderr)
+        print(f"  <!-- GENERATED_{section}_START -->", file=sys.stderr)
+        print(f"  <!-- GENERATED_{section}_END -->", file=sys.stderr)
+        return (content, False)
+
+    current = content[start_pos:end_pos].strip()
+    new = generated.strip()
+
+    if current == new:
+        return (content, False)
+
+    updated = content[:start_pos] + "\n" + new + "\n" + content[end_pos:]
+    return (updated, True)
+
+
+def update_readme(sections: Dict[str, str], check_only: bool = False) -> bool:
+    """
+    Update README.md with generated documentation for all sections.
+
+    Args:
+        sections: Dict mapping section names to generated content
         check_only: If True, only check if update is needed (don't modify file)
 
     Returns:
@@ -225,25 +256,16 @@ def update_readme(generated_docs: str, check_only: bool = False) -> bool:
         print(f"Error: {readme_path} not found", file=sys.stderr)
         return False
 
-    # Read current README
     with open(readme_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Find markers
-    start_pos, end_pos = find_markers(content)
+    any_changed = False
+    for section, generated in sections.items():
+        content, changed = update_section(content, section, generated)
+        if changed:
+            any_changed = True
 
-    if start_pos == -1:
-        print("Error: Could not find markers in README.md", file=sys.stderr)
-        print("Please add the following markers where you want the generated docs:", file=sys.stderr)
-        print("  <!-- GENERATED_RULES_DOCS_START -->", file=sys.stderr)
-        print("  <!-- GENERATED_RULES_DOCS_END -->", file=sys.stderr)
-        return False
-
-    # Extract current generated content
-    current_generated = content[start_pos:end_pos].strip()
-    new_generated = generated_docs.strip()
-
-    if current_generated == new_generated:
+    if not any_changed:
         if check_only:
             print("✓ README.md is up to date")
         else:
@@ -255,19 +277,34 @@ def update_readme(generated_docs: str, check_only: bool = False) -> bool:
         print("Run 'python generate_rules_docs.py' to update", file=sys.stderr)
         return False
 
-    # Update content
-    new_content = (
-        content[:start_pos] +
-        "\n" + new_generated + "\n" +
-        content[end_pos:]
-    )
-
-    # Write updated README
     with open(readme_path, 'w', encoding='utf-8') as f:
-        f.write(new_content)
+        f.write(content)
 
     print(f"✓ Updated {readme_path}")
     return True
+
+
+def format_exemption_rule_list() -> str:
+    """
+    Generate a Markdown table of valid rule names for the exemptions section.
+
+    Returns:
+        Formatted Markdown string with the list of valid rule names
+    """
+    from crs_linter.rules_metadata import get_registered_rules
+
+    lines = [
+        "The following rule names can be used in exemption comments:\n",
+        "| Rule name | Description |",
+        "| --- | --- |",
+    ]
+    # Build table from registered rules, sorted by name
+    rules = sorted(get_registered_rules(), key=lambda r: r.name)
+    for rule in rules:
+        class_name = rule.__class__.__name__
+        lines.append(f"| `{rule.name}` | [{class_name}](#{class_name.lower()}) |")
+
+    return "\n".join(lines)
 
 
 def main():
@@ -284,10 +321,14 @@ def main():
     print(f"Found {len(docs)} rule classes")
 
     print("Generating Markdown documentation...")
-    generated_docs = format_rule_docs(docs)
+    generated_rules = format_rule_docs(docs)
+    generated_exemptions = format_exemption_rule_list()
 
     print("Updating README.md...")
-    success = update_readme(generated_docs, check_only)
+    success = update_readme({
+        "RULES_DOCS": generated_rules,
+        "EXEMPTIONS_DOCS": generated_exemptions,
+    }, check_only)
 
     if not success:
         return 1

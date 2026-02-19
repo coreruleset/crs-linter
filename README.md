@@ -145,6 +145,29 @@ Sometimes you may need to suppress specific linting rules for individual ModSecu
 - Whitespace around colons and commas is allowed
 - The exemption applies to the **next non-comment, non-blank line**
 
+### Available Rule Names
+
+<!-- GENERATED_EXEMPTIONS_DOCS_START -->
+The following rule names can be used in exemption comments:
+
+| Rule name | Description |
+| --- | --- |
+| `approved_tags` | [ApprovedTags](#approvedtags) |
+| `capture` | [CheckCapture](#checkcapture) |
+| `crs_tag` | [CrsTag](#crstag) |
+| `deprecated` | [Deprecated](#deprecated) |
+| `duplicated` | [DuplicatedIds](#duplicatedids) |
+| `ignore_case` | [IgnoreCase](#ignorecase) |
+| `indentation` | [Indentation](#indentation) |
+| `lowercase_ignorecase` | [LowercaseIgnorecase](#lowercaseignorecase) |
+| `ordered_actions` | [OrderedActions](#orderedactions) |
+| `pl_consistency` | [PlConsistency](#plconsistency) |
+| `rule_tests` | [RuleTests](#ruletests) |
+| `standalonetxn` | [StandaloneTxn](#standalonetxn) |
+| `variables_usage` | [VariablesUsage](#variablesusage) |
+| `version` | [Version](#version) |
+<!-- GENERATED_EXEMPTIONS_DOCS_END -->
+
 ### Examples
 
 #### Exempt a single rule
@@ -203,7 +226,7 @@ SecRule REQUEST_HEADERS:Referer "@rx (?i)test" \
 
 - Each exemption only affects the **immediate next rule**
 - Exemptions work with multi-line rules (the entire rule is exempted)
-- Unknown rule names are silently stored (for forward compatibility)
+- Unknown rule names trigger a warning to help catch typos
 - Case variations in keywords are supported: `#CRS-LINTER:IGNORE:rule_name`
 
 ### See Also

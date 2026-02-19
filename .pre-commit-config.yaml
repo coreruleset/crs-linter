@@ -14,6 +14,6 @@ repos:
         name: Generate rules documentation
         entry: uv run python ./generate_rules_docs.py
         language: system
-        files: ^(src/crs_linter/rules/.*\.py|README\.md)$
+        files: ^(src/crs_linter/rules/.*\.py|src/crs_linter/rules_metadata\.py|README\.md)$
         pass_filenames: false
         require_serial: true
