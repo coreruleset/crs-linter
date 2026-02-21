@@ -161,6 +161,7 @@ The following rule names can be used in exemption comments:
 | `indentation` | [Indentation](#indentation) |
 | `lowercase_ignorecase` | [LowercaseIgnorecase](#lowercaseignorecase) |
 | `ordered_actions` | [OrderedActions](#orderedactions) |
+| `pass_nolog` | [PassNolog](#passnolog) |
 | `pl_consistency` | [PlConsistency](#plconsistency) |
 | `rule_tests` | [RuleTests](#ruletests) |
 | `standalonetxn` | [StandaloneTxn](#standalonetxn) |
