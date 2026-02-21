@@ -13,6 +13,7 @@ The CRS Linter helps maintain code quality and consistency across your rule conf
 - [Quick Start](#-quick-start)
 - [Command Line Arguments](#-command-line-arguments)
 - [Output Formats](#-output-formats)
+- [Exemptions](#-exemptions)
 - [Linting Rules Reference](#-linting-rules-reference)
 
 ---
@@ -126,6 +127,112 @@ crs-linter \
 ```
 
 This format follows [GitHub's workflow commands specification](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-a-notice-message) for better CI/CD integration.
+
+---
+
+## 🔕 Exemptions
+
+Sometimes you may need to suppress specific linting rules for individual ModSecurity rules. The CRS Linter supports exemption comments that allow you to selectively disable checks.
+
+### Format
+
+```apache
+#crs-linter:ignore:rule1,rule2,rule3
+```
+
+- **Keywords** (`crs-linter`, `ignore`) are case-insensitive
+- **Rule names** are comma-separated (use the rule name from the error message)
+- Whitespace around colons and commas is allowed
+- The exemption applies to the **next non-comment, non-blank line**
+
+### Available Rule Names
+
+<!-- GENERATED_EXEMPTIONS_DOCS_START -->
+The following rule names can be used in exemption comments:
+
+| Rule name | Description |
+| --- | --- |
+| `approved_tags` | [ApprovedTags](#approvedtags) |
+| `capture` | [CheckCapture](#checkcapture) |
+| `crs_tag` | [CrsTag](#crstag) |
+| `deprecated` | [Deprecated](#deprecated) |
+| `duplicated` | [DuplicatedIds](#duplicatedids) |
+| `ignore_case` | [IgnoreCase](#ignorecase) |
+| `indentation` | [Indentation](#indentation) |
+| `lowercase_ignorecase` | [LowercaseIgnorecase](#lowercaseignorecase) |
+| `ordered_actions` | [OrderedActions](#orderedactions) |
+| `pl_consistency` | [PlConsistency](#plconsistency) |
+| `rule_tests` | [RuleTests](#ruletests) |
+| `standalonetxn` | [StandaloneTxn](#standalonetxn) |
+| `variables_usage` | [VariablesUsage](#variablesusage) |
+| `version` | [Version](#version) |
+<!-- GENERATED_EXEMPTIONS_DOCS_END -->
+
+### Examples
+
+#### Exempt a single rule
+
+```apache
+#crs-linter:ignore:lowercase_ignorecase
+SecRule ARGS "@rx (?i)foo" \
+    "id:1001,\
+    phase:1,\
+    pass,\
+    t:lowercase"
+```
+
+#### Exempt multiple rules
+
+```apache
+#crs-linter:ignore:lowercase_ignorecase,deprecated
+SecRule REQUEST_HEADERS:Referer "@rx (?i)attack" \
+    "id:1002,\
+    phase:1,\
+    deny,\
+    t:lowercase"
+```
+
+#### Skip comments and blank lines
+
+Exemption comments automatically skip over other comments and blank lines to find the target rule:
+
+```apache
+#crs-linter:ignore:lowercase_ignorecase
+# This comment is skipped
+
+# Blank lines are also skipped
+SecRule ARGS "@rx (?i)bar" \
+    "id:1003,\
+    phase:1,\
+    pass,\
+    t:lowercase"
+```
+
+#### Multiple exemption comments
+
+Multiple exemption comments for the same rule are merged:
+
+```apache
+#crs-linter:ignore:lowercase_ignorecase
+#crs-linter:ignore:deprecated
+SecRule REQUEST_HEADERS:Referer "@rx (?i)test" \
+    "id:1004,\
+    phase:1,\
+    deny,\
+    t:lowercase"
+```
+
+### Important Notes
+
+- Each exemption only affects the **immediate next rule**
+- Exemptions work with multi-line rules (the entire rule is exempted)
+- Unknown rule names trigger a warning to help catch typos
+- Case variations in keywords are supported: `#CRS-LINTER:IGNORE:rule_name`
+
+### See Also
+
+- [Exemption examples file](examples/exemption_example.conf) - Comprehensive examples
+- [Rule names reference](#-linting-rules-reference) - List of all available rule names
 
 ---
 
