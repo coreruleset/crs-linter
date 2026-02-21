@@ -16,6 +16,7 @@ from .rules import (
     indentation,
     lowercase_ignorecase,
     ordered_actions,
+    pass_nolog,
     pl_consistency,
     rule_tests,
     standalone_txn,
