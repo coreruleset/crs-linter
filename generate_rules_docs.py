@@ -12,55 +12,80 @@ Options:
     --check     Check if generated docs match current README (for CI)
 """
 
+import ast
 import sys
-import importlib
-import inspect
 import re
 from pathlib import Path
 from typing import List, Dict, Tuple
 
 
+def _find_name_override(class_node: ast.ClassDef) -> str | None:
+    """
+    Look for a self.name = "..." assignment in __init__ to detect
+    rules that override the default name derived from the module.
+    """
+    for node in ast.walk(class_node):
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if (
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == "self"
+                and target.attr == "name"
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                return node.value.value
+    return None
+
+
 def extract_rule_docs() -> List[Dict[str, str]]:
     """
-    Extract docstrings from all rule classes in src/crs_linter/rules/.
+    Extract docstrings from rule classes using AST parsing.
+
+    Parses each rule .py file with the ast module to find Rule subclasses
+    and their docstrings, without importing any modules. This avoids
+    requiring external dependencies (msc_pyparser, dulwich, etc.).
 
     Returns:
-        List of dicts with 'name', 'module_name', and 'docstring' keys.
+        List of dicts with 'name', 'module_name', 'rule_name', and
+        'docstring' keys, sorted by module name.
     """
-    # Add src to path so we can import the modules
-    src_path = Path(__file__).parent / "src"
-    if str(src_path) not in sys.path:
-        sys.path.insert(0, str(src_path))
-
     rules_dir = Path(__file__).parent / "src" / "crs_linter" / "rules"
+
     docs = []
-
-    # Get all Python files in the rules directory
-    rule_files = sorted(rules_dir.glob("*.py"))
-
-    for rule_file in rule_files:
-        if rule_file.name == "__init__.py":
+    for rule_file in sorted(rules_dir.glob("*.py")):
+        if rule_file.name.startswith("__"):
             continue
 
-        try:
-            module_name = f"crs_linter.rules.{rule_file.stem}"
-            module = importlib.import_module(module_name)
+        module_name = rule_file.stem
+        tree = ast.parse(rule_file.read_text(encoding="utf-8"), filename=str(rule_file))
 
-            # Find classes that inherit from Rule (have a 'check' method)
-            for name, obj in inspect.getmembers(module, inspect.isclass):
-                # Check if it's defined in this module and has a check method
-                if obj.__module__ == module_name and hasattr(obj, 'check'):
-                    docstring = inspect.getdoc(obj)
-                    if docstring:
-                        docs.append({
-                            'name': name,
-                            'module_name': rule_file.stem,
-                            'docstring': docstring
-                        })
-                    break  # Only one rule class per file
-        except Exception as e:
-            print(f"Warning: Could not import {rule_file.name}: {e}", file=sys.stderr)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            # Check that the class inherits from Rule
+            if not any(
+                (isinstance(b, ast.Name) and b.id == "Rule")
+                or (isinstance(b, ast.Attribute) and b.attr == "Rule")
+                for b in node.bases
+            ):
+                continue
 
+            docstring = ast.get_docstring(node)
+            if docstring:
+                # Use overridden name if present, otherwise module name
+                rule_name = _find_name_override(node) or module_name
+                docs.append({
+                    "name": node.name,
+                    "module_name": module_name,
+                    "rule_name": rule_name,
+                    "docstring": docstring,
+                })
+
+    # Sort by module name for consistent ordering
+    docs.sort(key=lambda d: d["module_name"])
     return docs
 
 
@@ -193,18 +218,19 @@ def format_rule_docs(docs: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
-def find_markers(content: str) -> Tuple[int, int]:
+def find_markers(content: str, section: str) -> Tuple[int, int]:
     """
-    Find the start and end positions of the generated docs markers.
+    Find the start and end positions of a generated docs section.
 
     Args:
         content: README.md content
+        section: Section name (e.g., 'RULES_DOCS', 'EXEMPTIONS_DOCS')
 
     Returns:
         Tuple of (start_pos, end_pos) or (-1, -1) if markers not found
     """
-    start_marker = "<!-- GENERATED_RULES_DOCS_START -->"
-    end_marker = "<!-- GENERATED_RULES_DOCS_END -->"
+    start_marker = f"<!-- GENERATED_{section}_START -->"
+    end_marker = f"<!-- GENERATED_{section}_END -->"
 
     start_pos = content.find(start_marker)
     end_pos = content.find(end_marker)
@@ -216,12 +242,42 @@ def find_markers(content: str) -> Tuple[int, int]:
     return (start_pos + len(start_marker), end_pos)
 
 
-def update_readme(generated_docs: str, check_only: bool = False) -> bool:
+def update_section(content: str, section: str, generated: str) -> Tuple[str, bool]:
     """
-    Update README.md with generated documentation.
+    Update a single generated section in the README content.
 
     Args:
-        generated_docs: The generated documentation string
+        content: Current README content
+        section: Section name (e.g., 'RULES_DOCS', 'EXEMPTIONS_DOCS')
+        generated: New generated content for this section
+
+    Returns:
+        Tuple of (updated_content, changed). changed is True if content was modified.
+    """
+    start_pos, end_pos = find_markers(content, section)
+
+    if start_pos == -1:
+        print(f"Error: Could not find {section} markers in README.md", file=sys.stderr)
+        print(f"  <!-- GENERATED_{section}_START -->", file=sys.stderr)
+        print(f"  <!-- GENERATED_{section}_END -->", file=sys.stderr)
+        return (content, False)
+
+    current = content[start_pos:end_pos].strip()
+    new = generated.strip()
+
+    if current == new:
+        return (content, False)
+
+    updated = content[:start_pos] + "\n" + new + "\n" + content[end_pos:]
+    return (updated, True)
+
+
+def update_readme(sections: Dict[str, str], check_only: bool = False) -> bool:
+    """
+    Update README.md with generated documentation for all sections.
+
+    Args:
+        sections: Dict mapping section names to generated content
         check_only: If True, only check if update is needed (don't modify file)
 
     Returns:
@@ -233,25 +289,16 @@ def update_readme(generated_docs: str, check_only: bool = False) -> bool:
         print(f"Error: {readme_path} not found", file=sys.stderr)
         return False
 
-    # Read current README
     with open(readme_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Find markers
-    start_pos, end_pos = find_markers(content)
+    any_changed = False
+    for section, generated in sections.items():
+        content, changed = update_section(content, section, generated)
+        if changed:
+            any_changed = True
 
-    if start_pos == -1:
-        print("Error: Could not find markers in README.md", file=sys.stderr)
-        print("Please add the following markers where you want the generated docs:", file=sys.stderr)
-        print("  <!-- GENERATED_RULES_DOCS_START -->", file=sys.stderr)
-        print("  <!-- GENERATED_RULES_DOCS_END -->", file=sys.stderr)
-        return False
-
-    # Extract current generated content
-    current_generated = content[start_pos:end_pos].strip()
-    new_generated = generated_docs.strip()
-
-    if current_generated == new_generated:
+    if not any_changed:
         if check_only:
             print("✓ README.md is up to date")
         else:
@@ -263,19 +310,33 @@ def update_readme(generated_docs: str, check_only: bool = False) -> bool:
         print("Run 'python generate_rules_docs.py' to update", file=sys.stderr)
         return False
 
-    # Update content
-    new_content = (
-        content[:start_pos] +
-        "\n" + new_generated + "\n" +
-        content[end_pos:]
-    )
-
-    # Write updated README
     with open(readme_path, 'w', encoding='utf-8') as f:
-        f.write(new_content)
+        f.write(content)
 
     print(f"✓ Updated {readme_path}")
     return True
+
+
+def format_exemption_rule_list(docs: List[Dict[str, str]]) -> str:
+    """
+    Generate a Markdown table of valid rule names for the exemptions section.
+
+    Args:
+        docs: List of rule documentation dicts (from extract_rule_docs)
+
+    Returns:
+        Formatted Markdown string with the list of valid rule names
+    """
+    lines = [
+        "The following rule names can be used in exemption comments:\n",
+        "| Rule name | Description |",
+        "| --- | --- |",
+    ]
+    # Build table from docs, sorted by rule_name
+    for doc in sorted(docs, key=lambda d: d["rule_name"]):
+        lines.append(f"| `{doc['rule_name']}` | [{doc['name']}](#{doc['name'].lower()}) |")
+
+    return "\n".join(lines)
 
 
 def main():
@@ -292,10 +353,14 @@ def main():
     print(f"Found {len(docs)} rule classes")
 
     print("Generating Markdown documentation...")
-    generated_docs = format_rule_docs(docs)
+    generated_rules = format_rule_docs(docs)
+    generated_exemptions = format_exemption_rule_list(docs)
 
     print("Updating README.md...")
-    success = update_readme(generated_docs, check_only)
+    success = update_readme({
+        "RULES_DOCS": generated_rules,
+        "EXEMPTIONS_DOCS": generated_exemptions,
+    }, check_only)
 
     if not success:
         return 1

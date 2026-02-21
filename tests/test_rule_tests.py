@@ -244,19 +244,19 @@ def test_chained_rules_without_tests(run_linter):
         "Chained rules without tests should be detected"
 
 
-def test_none_test_cases_defaults_to_empty_dict(run_linter):
-    """Test that None test_cases is handled gracefully."""
+def test_none_test_cases_skips_rule(run_linter):
+    """Test that None test_cases causes the rule_tests check to be skipped."""
     rule = '''SecRule REQUEST_URI "@rx malicious" \\
     "id:942100,\\
     phase:2,\\
     block,\\
     t:none"'''
 
-    # Pass None explicitly (default behavior)
+    # Pass None explicitly — the rule_tests condition prevents execution
     problems = run_linter(rule, rule_type="rule_tests", test_cases=None)
 
-    assert len(problems) == 1, \
-        "None test_cases should be treated as empty dict"
+    assert len(problems) == 0, \
+        "None test_cases should skip the rule_tests check entirely"
 
 
 def test_none_exclusion_list_defaults_to_empty_list(run_linter):

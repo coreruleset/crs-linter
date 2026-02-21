@@ -12,8 +12,8 @@ repos:
     hooks:
       - id: generate-rules-docs
         name: Generate rules documentation
-        entry: ./generate_rules_docs.py
-        language: system
+        entry: python generate_rules_docs.py
+        language: python
         files: ^(src/crs_linter/rules/.*\.py|README\.md)$
         pass_filenames: false
         require_serial: true

@@ -4,6 +4,7 @@ import os.path
 import sys
 from .lint_problem import LintProblem
 from .rules_metadata import get_rules
+from .exemptions import parse_exemptions, should_exempt_problem, validate_exemption_names
 
 # Import all rules to trigger auto-registration via metaclass
 from .rules import (
@@ -41,6 +42,17 @@ class Linter:
         # Initialize rules system
         self.rules = rules or get_rules()
 
+        # Parse exemption comments from file content
+        self.exemptions = parse_exemptions(file_content) if file_content else {}
+
+        # Validate exemption rule names against registered rules
+        if self.exemptions:
+            warnings = validate_exemption_names(
+                self.exemptions, self.rules.get_rule_names()
+            )
+            for warning in warnings:
+                print(f"Warning: {filename}: {warning}", file=sys.stderr)
+
     def _get_rule_configs(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None):
         """
         Get rule configurations for the linter using the Rules system.
@@ -59,6 +71,7 @@ class Linter:
         """
         Run all linting checks and yield LintProblem objects.
         This is the main entry point for the linter.
+        Automatically filters out exempted problems based on exemption comments.
         """
         # First collect TX variables and check for duplicated IDs
         self._collect_tx_variables()
@@ -66,12 +79,14 @@ class Linter:
         # Get rule configurations
         rule_configs = self._get_rule_configs(tagslist, test_cases, exclusion_list, crs_version, filename_tag_exclusions)
 
-        # Run all rule checks generically
+        # Run all rule checks generically and apply exemptions
         for rule_instance, args, kwargs, condition in rule_configs:
             if condition is None or condition:  # Run if no condition or condition is True
                 try:
                     for problem in rule_instance.check(*args, **kwargs):
-                        yield problem
+                        # Filter out exempted problems
+                        if not should_exempt_problem(problem, self.exemptions):
+                            yield problem
                 except Exception as e:
                     # Log error but continue with other rules
                     rule_name = getattr(rule_instance, '__class__', type(rule_instance)).__name__
