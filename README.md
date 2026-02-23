@@ -161,6 +161,7 @@ The following rule names can be used in exemption comments:
 | `indentation` | [Indentation](#indentation) |
 | `lowercase_ignorecase` | [LowercaseIgnorecase](#lowercaseignorecase) |
 | `ordered_actions` | [OrderedActions](#orderedactions) |
+| `pass_nolog` | [PassNolog](#passnolog) |
 | `pl_consistency` | [PlConsistency](#plconsistency) |
 | `rule_tests` | [RuleTests](#ruletests) |
 | `standalonetxn` | [StandaloneTxn](#standalonetxn) |
@@ -566,6 +567,43 @@ SecRule REQUEST_URI "@beginsWith /index.php" \
     t:none,\
     nolog"
 ```
+
+## PassNolog
+
+**Source:** `src/crs_linter/rules/pass_nolog.py`
+
+Check that rules using the `pass` action also include `nolog`.
+
+When a rule uses the `pass` disruptive action (allowing the request to
+continue), it should also include `nolog` to prevent excessive log spam.
+Rule logging is only meaningful for blocking rules or for debugging
+purposes.
+
+Example of a failing rule (pass without nolog):
+
+```apache
+SecRule ARGS "@rx foo" \
+    "id:1,\
+    phase:2,\
+    pass,\
+    t:none"  # Fails: pass without nolog
+```
+
+
+Example of a correct rule:
+
+```apache
+SecRule ARGS "@rx foo" \
+    "id:2,\
+    phase:2,\
+    pass,\
+    t:none,\
+    nolog"  # OK: nolog accompanies pass
+```
+
+
+Note: This check applies to any directive that supports actions, including
+SecRule and SecAction.
 
 ## PlConsistency
 
