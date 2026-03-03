@@ -10,6 +10,7 @@ from .exemptions import parse_exemptions, should_exempt_problem, validate_exempt
 from .rules import (
     approved_tags,
     check_capture,
+    collection_capture_chain,
     crs_tag,
     deprecated,
     duplicated,
