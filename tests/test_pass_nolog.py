@@ -74,7 +74,7 @@ SecRule ARGS "@rx bar" \\
 ])
 def test_pass_without_nolog(run_linter, rule, expected_count, description):
     """Test detection of pass action without nolog."""
-    problems = run_linter(rule, rule_type="passnolog")
+    problems = run_linter(rule, rule_type="pass_nolog")
 
     assert len(problems) == expected_count, \
         f"{description}: expected {expected_count} problems, got {len(problems)}"
@@ -88,7 +88,7 @@ def test_pass_nolog_error_includes_rule_id(run_linter):
     pass,\\
     t:none"'''
 
-    problems = run_linter(rule, rule_type="passnolog")
+    problems = run_linter(rule, rule_type="pass_nolog")
 
     assert len(problems) == 1
     assert "123456" in problems[0].desc, \
@@ -102,7 +102,7 @@ def test_pass_nolog_error_message(run_linter):
     phase:2,\\
     pass"'''
 
-    problems = run_linter(rule, rule_type="passnolog")
+    problems = run_linter(rule, rule_type="pass_nolog")
 
     assert len(problems) == 1
     assert "pass" in problems[0].desc.lower(), \

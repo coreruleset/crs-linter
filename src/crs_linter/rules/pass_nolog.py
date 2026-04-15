@@ -59,5 +59,5 @@ class PassNolog(Rule):
                         line=pass_lineno,
                         end_line=pass_lineno,
                         desc=f"rule uses 'pass' without 'nolog'; rule id: {rule_id_str}",
-                        rule="passnolog",
+                        rule=self.name,
                     )
