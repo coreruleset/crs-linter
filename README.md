@@ -160,6 +160,7 @@ The following rule names can be used in exemption comments:
 | `ignore_case` | [IgnoreCase](#ignorecase) |
 | `indentation` | [Indentation](#indentation) |
 | `lowercase_ignorecase` | [LowercaseIgnorecase](#lowercaseignorecase) |
+| `no_negated_request_cookies` | [NoNegatedRequestCookies](#nonegatedrequestcookies) |
 | `ordered_actions` | [OrderedActions](#orderedactions) |
 | `pl_consistency` | [PlConsistency](#plconsistency) |
 | `rule_tests` | [RuleTests](#ruletests) |
@@ -533,6 +534,48 @@ SecRule ARGS "@rx (?i)foo" \
 The rule should use either:
 - t:lowercase with a case-sensitive regex: "@rx foo"
 - (?i) flag without t:lowercase transformation
+
+## NoNegatedRequestCookies
+
+**Source:** `src/crs_linter/rules/no_negated_request_cookies.py`
+
+Check that SecRule directives don't use negated REQUEST_COOKIES targets.
+
+This rule enforces the policy that cookie exclusions should not be
+implemented using !REQUEST_COOKIES in SecRule directives. Instead,
+cookie exclusions should be moved to separate post-CRS files using
+SecRuleUpdateTargetById directives.
+
+Example of a failing rule (old pattern - not allowed):
+
+```apache
+SecRule !REQUEST_COOKIES:session_id|ARGS:foo "@rx attack" \
+    "id:942100,\
+    phase:2,\
+    block"  # Fails: uses !REQUEST_COOKIES
+```
+
+
+Example of the correct approach (new pattern):
+
+In the main rule file:
+
+```apache
+SecRule REQUEST_COOKIES|ARGS:foo "@rx attack" \
+    "id:942100,\
+    phase:2,\
+    block"
+```
+
+
+In a separate post-CRS configuration file:
+
+```apache
+SecRuleUpdateTargetById 942100 "!REQUEST_COOKIES:session_id"
+```
+
+
+See: https://github.com/coreruleset/coreruleset/pull/4378
 
 ## OrderedActions
 
