@@ -4,7 +4,7 @@ Test the Rules metadata system and individual rule testing.
 
 import pytest
 from crs_linter.linter import Linter
-from crs_linter.rules_metadata import Rules, get_rules
+from crs_linter.rules_metadata import Rules, get_rules, get_rule_names, get_registered_rules
 from crs_linter.rule import Rule
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rules.ignore_case import IgnoreCase
@@ -15,7 +15,7 @@ def test_rule_metadata_in_rule_class():
     """Test that rule instances have their own metadata."""
     rule = IgnoreCase()
 
-    assert rule.name == "ignorecase"
+    assert rule.name == "ignore_case"
     assert rule.success_message == "Ignore case check ok."
     assert rule.error_message == "Ignore case check found error(s)"
     assert rule.error_title == "Case check"
@@ -31,8 +31,8 @@ def test_default_rules_creation():
 
     # Check that we have some expected rules
     registered_rules = [rule.name for rule in rules._rules]
-    expected_rules = ["ignorecase", "orderedactions", "variablesusage",
-                     "plconsistency", "crstag", "version", "approvedtags"]
+    expected_rules = ["ignore_case", "ordered_actions", "variables_usage",
+                     "pl_consistency", "crs_tag", "version", "approved_tags"]
 
     for expected in expected_rules:
         assert expected in registered_rules, f"Expected rule {expected} not found"
@@ -42,7 +42,7 @@ def test_rules_get_rule_messages():
     """Test that Rules.get_rule_messages returns correct messages."""
     rules = get_rules()
 
-    success, error, title = rules.get_rule_messages("ignorecase")
+    success, error, title = rules.get_rule_messages("ignore_case")
     assert success == "Ignore case check ok."
     assert error == "Ignore case check found error(s)"
     assert title == "Case check"
@@ -135,3 +135,30 @@ def test_rule_conditions(parse_rule):
     # Version rule should have condition = True
     if len(version_configs) > 0:
         assert version_configs[0][3] is None or version_configs[0][3] == True
+
+
+def test_get_rule_names():
+    """Test that get_rule_names returns correct set of names."""
+    names = get_rule_names()
+    assert isinstance(names, set)
+    assert len(names) > 0
+
+    # Check expected rule names are present
+    expected = {"approved_tags", "capture", "crs_tag", "deprecated",
+                "duplicated", "ignore_case", "indentation",
+                "lowercase_ignorecase", "ordered_actions",
+                "pl_consistency", "rule_tests", "standalonetxn",
+                "variables_usage", "version"}
+    for name in expected:
+        assert name in names, f"Expected rule name '{name}' not in {names}"
+
+
+def test_get_registered_rules():
+    """Test that get_registered_rules returns rule instances."""
+    rules = get_registered_rules()
+    assert isinstance(rules, list)
+    assert len(rules) > 0
+    for rule in rules:
+        assert isinstance(rule, Rule)
+        assert hasattr(rule, 'name')
+        assert hasattr(rule, 'check')

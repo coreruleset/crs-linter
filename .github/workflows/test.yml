@@ -17,7 +17,7 @@ jobs:
       fail-fast: true
       matrix:
         # renovate: datasource=github-releases depName=coreruleset/coreruleset versioning=semver
-        CRS_VERSION: ['4.23.0']
+        CRS_VERSION: ['4.24.1']
         python-version: ['3.11', '3.12', '3.13']
 
     steps:
@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           enable-cache: true
 
@@ -59,4 +59,4 @@ jobs:
             -f util/FILENAME_EXCLUSIONS \
             -v ${{ matrix.CRS_VERSION }} \
             -T tests/regression/tests/ \
-            -E util/TESTS_EXCLUSIONS
+            -E tests/TESTS_EXCLUSIONS

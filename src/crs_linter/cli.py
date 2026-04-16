@@ -254,6 +254,7 @@ def main():
         c = Linter(parsed[f], f, txvars, ids, file_content=file_contents.get(f))
 
         # Run all linting checks using the new generic system
+        # Exemptions are automatically applied in run_checks()
         problems = list(c.run_checks(
             tagslist=tags,
             test_cases=test_cases,
