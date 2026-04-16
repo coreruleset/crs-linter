@@ -59,4 +59,4 @@ jobs:
             -f util/FILENAME_EXCLUSIONS \
             -v ${{ matrix.CRS_VERSION }} \
             -T tests/regression/tests/ \
-            -E util/TESTS_EXCLUSIONS
+            -E tests/TESTS_EXCLUSIONS
