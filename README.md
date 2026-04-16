@@ -160,6 +160,7 @@ The following rule names can be used in exemption comments:
 | `ignore_case` | [IgnoreCase](#ignorecase) |
 | `indentation` | [Indentation](#indentation) |
 | `lowercase_ignorecase` | [LowercaseIgnorecase](#lowercaseignorecase) |
+| `no_negated_request_cookies` | [NoNegatedRequestCookies](#nonegatedrequestcookies) |
 | `ordered_actions` | [OrderedActions](#orderedactions) |
 | `pl_consistency` | [PlConsistency](#plconsistency) |
 | `rule_tests` | [RuleTests](#ruletests) |
