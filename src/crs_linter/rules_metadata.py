@@ -35,6 +35,14 @@ class Rules:
                 return rule.get_messages()
         return f"{name} check ok.", f"{name} check found error(s)", name.replace('_', ' ').title()
 
+    def get_rule_names(self) -> set:
+        """Returns the set of all registered rule names."""
+        return {rule.name for rule in self._rules}
+
+    def get_registered_rules(self) -> list:
+        """Returns the list of all registered rule instances."""
+        return list(self._rules)
+
     def get_rule_configs(self, linter_instance, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None):
         """
         Generates rule configurations for the linter based on registered rules and current context.
@@ -102,3 +110,13 @@ _rules_instance = Rules()
 def get_rules():
     """Get the singleton Rules instance."""
     return _rules_instance
+
+
+def get_rule_names() -> set:
+    """Get the set of all registered rule names."""
+    return _rules_instance.get_rule_names()
+
+
+def get_registered_rules() -> list:
+    """Get the list of all registered rule instances."""
+    return _rules_instance.get_registered_rules()
