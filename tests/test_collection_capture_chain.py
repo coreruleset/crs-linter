@@ -305,8 +305,8 @@ def test_vulnerable_pattern_multiple_chains_only_reports_once():
         problems = list(linter.run_checks())
 
         collection_problems = [p for p in problems if p.rule == "collection_capture_chain"]
-        # Should report the issue, but ideally only once (or at least for the first occurrence)
-        assert len(collection_problems) > 0, \
+        # Should report the issue exactly once per chain, not once per TX reference
+        assert len(collection_problems) == 1, \
             "Expected to detect vulnerable pattern with multiple chains"
     finally:
         os.unlink(temp_file)
