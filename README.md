@@ -154,6 +154,7 @@ The following rule names can be used in exemption comments:
 | --- | --- |
 | `approved_tags` | [ApprovedTags](#approvedtags) |
 | `capture` | [CheckCapture](#checkcapture) |
+| `collection_capture_chain` | [CollectionCaptureChain](#collectioncapturechain) |
 | `crs_tag` | [CrsTag](#crstag) |
 | `deprecated` | [Deprecated](#deprecated) |
 | `duplicated` | [DuplicatedIds](#duplicatedids) |
