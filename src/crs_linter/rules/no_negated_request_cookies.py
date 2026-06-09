@@ -47,7 +47,10 @@ class NoNegatedRequestCookies(Rule):
                 if "actions" in d:
                     for a in d["actions"]:
                         if a["act_name"] == "id":
-                            current_ruleid = int(a["act_arg"])
+                            try:
+                                current_ruleid = int(a["act_arg"])
+                            except (ValueError, TypeError):
+                                current_ruleid = 0
                             break
 
                 # Check all variables/targets in the rule
