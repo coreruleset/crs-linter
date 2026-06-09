@@ -18,6 +18,7 @@ from .rules import (
     lowercase_ignorecase,
     no_negated_request_cookies,
     ordered_actions,
+    pass_nolog,
     pl_consistency,
     rule_tests,
     standalone_txn,
