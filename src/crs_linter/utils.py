@@ -3,7 +3,7 @@
 import re
 from semver import Version
 from dulwich.repo import Repo
-from dulwich.objects import Tag
+from dulwich.objects import Commit, Tag
 from dulwich.walk import Walker
 from collections import defaultdict
 
