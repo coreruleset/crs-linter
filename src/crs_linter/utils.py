@@ -35,6 +35,9 @@ def get_recent_tags(projdir):
                     obj.name.decode("utf-8"),
                 )
                 obj = repo.get_object(obj.object[1])  # peel annotated tag to commit
+            if not isinstance(obj, Commit):
+                # Skip tags that don't resolve to a commit (e.g., tree/blob tags)
+                continue
             commit = obj
             tags[tag_name_bytes.decode("utf-8")] = [
                 commit.commit_time,
