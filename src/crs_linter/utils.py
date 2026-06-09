@@ -1,12 +1,54 @@
 """Utility functions for the CRS linter"""
 
 import re
-from crs_linter.logger import Logger
 from semver import Version
-from dulwich.contrib.release_robot import get_recent_tags
 from dulwich.repo import Repo
+from dulwich.objects import Commit, Tag
 from dulwich.walk import Walker
 from collections import defaultdict
+
+
+def get_recent_tags(projdir):
+    """Return repository tags ordered from newest to oldest.
+
+    Replacement for the removed ``dulwich.contrib.release_robot.get_recent_tags``.
+
+    Args:
+        projdir: Path to the repository working directory or ``.git`` dir.
+
+    Returns:
+        A list of ``(tag_name, [commit_time, commit_sha, author, tag_meta])``
+        tuples sorted by the tag's commit time, newest first. Annotated tags are
+        peeled to the commit they point at so ``commit_sha`` is always a commit
+        hash; ``tag_meta`` is ``None`` for lightweight tags.
+    """
+    repo = Repo(projdir)
+    try:
+        tags = {}
+        for tag_name_bytes, sha in repo.refs.as_dict(b"refs/tags").items():
+            obj = repo.get_object(sha)
+            tag_meta = None
+            if isinstance(obj, Tag):
+                tag_meta = (
+                    obj.tag_time,
+                    obj.id.decode("utf-8"),
+                    obj.name.decode("utf-8"),
+                )
+                obj = repo.get_object(obj.object[1])  # peel annotated tag to commit
+            if not isinstance(obj, Commit):
+                # Skip tags that don't resolve to a commit (e.g., tree/blob tags)
+                continue
+            commit = obj
+            tags[tag_name_bytes.decode("utf-8")] = [
+                commit.commit_time,
+                commit.id.decode("utf-8"),
+                commit.author.decode("utf-8"),
+                tag_meta,
+            ]
+        return sorted(tags.items(), key=lambda tag: tag[1][0], reverse=True)
+    finally:
+        repo.close()
+
 
 def get_id(actions):
     """ Return the ID from actions """
@@ -58,19 +100,19 @@ def remove_comments(data):
     # regex for matching rules
     marks = re.compile("^#(| *)(SecRule|SecAction)", re.I)
     state = 0  # hold the state of the parser
-    for l in lines:
+    for line in lines:
         # if the line starts with #SecRule, #SecAction, # SecRule, # SecAction, set the marker
-        if marks.match(l):
+        if marks.match(line):
             state = 1
         # if the marker is set and the line is empty or contains only a comment, unset it
-        if state == 1 and l.strip() in ["", "#"]:
+        if state == 1 and line.strip() in ["", "#"]:
             state = 0
 
         # if marker is set, remove the comment
         if state == 1:
-            _data.append(re.sub("^#", "", l))
+            _data.append(re.sub("^#", "", line))
         else:
-            _data.append(l)
+            _data.append(line)
 
     data = "\n".join(_data)
 
