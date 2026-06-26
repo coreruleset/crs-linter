@@ -5,8 +5,12 @@ from crs_linter.rule import Rule
 # Operators that implicitly anchor to the start (or full string) of the value
 _START_ANCHORED_OPERATORS = frozenset({"beginswith", "streq"})
 
-# Matches @rx patterns anchored to start (^) that don't have a (?:json...) prefix
-_MISSING_JSON_PREFIX_RE = re.compile(r"^\^(?!\(\?:json)")
+# Matches @rx patterns anchored to start (^) that lack the full optional (?:json\.)?
+# prefix. The lookahead requires the complete token — group start, literal "json",
+# optional backslash, literal dot, group close, and the "?" quantifier — so that
+# forms like "^(?:json\.)foo" (mandatory, not optional) or "^(?:jsonx)?" (wrong
+# name) are still flagged.
+_MISSING_JSON_PREFIX_RE = re.compile(r"^\^(?!\(\?:json\\?\.\)\?)")
 
 
 class ArgsNamesJsonPrefix(Rule):

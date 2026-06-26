@@ -15,12 +15,24 @@ import pytest
     ('''SecRule ARGS_NAMES "@rx ^[\\W\\d]+\\s*?select" \
     "id:3,phase:2,deny,t:none"''', 1, "@rx with ^ and character class but no json prefix"),
 
-    # Passing: (?:json\.)? prefix present
+    # Passing: full optional (?:json\.)? prefix present
     ('''SecRule ARGS_NAMES "@rx ^(?:json\\.)?foo" \
     "id:10,phase:2,deny,t:none"''', 0, "@rx with ^(?:json\\.)? prefix"),
 
     ('''SecRule ARGS_NAMES "@rx ^(?:json.)?foo" \
     "id:11,phase:2,deny,t:none"''', 0, "@rx with ^(?:json.)? prefix (unescaped dot)"),
+
+    # Failing: malformed json prefix — mandatory group (missing trailing ?)
+    ('''SecRule ARGS_NAMES "@rx ^(?:json\\.)foo" \
+    "id:14,phase:2,deny,t:none"''', 1, "@rx with mandatory (?:json\\.) group, no trailing ?"),
+
+    # Failing: wrong prefix name (not "json")
+    ('''SecRule ARGS_NAMES "@rx ^(?:jsonx)?foo" \
+    "id:15,phase:2,deny,t:none"''', 1, "@rx with wrong prefix name ^(?:jsonx)?"),
+
+    # Failing: missing dot in prefix
+    ('''SecRule ARGS_NAMES "@rx ^(?:json)?foo" \
+    "id:16,phase:2,deny,t:none"''', 1, "@rx with ^(?:json)? prefix (no dot)"),
 
     # Passing: not anchored to start
     ('''SecRule ARGS_NAMES "@rx foo" \
