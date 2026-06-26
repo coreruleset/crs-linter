@@ -9,6 +9,7 @@ from .exemptions import parse_exemptions, should_exempt_problem, validate_exempt
 # Import all rules to trigger auto-registration via metaclass
 from .rules import (
     approved_tags,
+    args_names_json_prefix,
     check_capture,
     crs_tag,
     deprecated,
