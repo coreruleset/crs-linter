@@ -12,6 +12,97 @@ _START_ANCHORED_OPERATORS = frozenset({"beginswith", "streq"})
 # name) are still flagged.
 _MISSING_JSON_PREFIX_RE = re.compile(r"^\^(?!\(\?:json\\?\.\)\?)")
 
+# A branch that opens with a negated character class immediately followed by a
+# "zero-or-more"/"one-or-more" quantifier, e.g. "[^'"]*" or "[^!&()]+".
+_LEADING_NEGATED_CLASS_RE = re.compile(r"^\[\^((?:\\.|[^\]])*)\][*+]")
+
+# Characters that appear literally in the "json." prefix. If a leading negated
+# character class excludes none of these, it will happily consume "json." as
+# part of its match, so the anchor still succeeds against JSON-prefixed names.
+_JSON_PREFIX_CHARS = frozenset("json.")
+
+
+def _split_top_level_alternatives(pattern):
+    """Split `pattern` on '|' that are not nested inside a group or char class."""
+    branches = []
+    start = 0
+    depth = 0
+    in_class = False
+    i = 0
+    while i < len(pattern):
+        c = pattern[i]
+        if c == "\\":
+            i += 2
+            continue
+        if in_class:
+            if c == "]":
+                in_class = False
+        elif c == "[":
+            in_class = True
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif c == "|" and depth == 0:
+            branches.append(pattern[start:i])
+            start = i + 1
+        i += 1
+    branches.append(pattern[start:])
+    return branches
+
+
+def _leading_group_body(pattern):
+    """If `pattern` starts with a non-capturing group, return its inner content."""
+    if not pattern.startswith("(?:"):
+        return None
+    depth = 1
+    in_class = False
+    i = 3
+    while i < len(pattern):
+        c = pattern[i]
+        if c == "\\":
+            i += 2
+            continue
+        if in_class:
+            if c == "]":
+                in_class = False
+        elif c == "[":
+            in_class = True
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return pattern[3:i]
+        i += 1
+    return None
+
+
+def _branch_absorbs_json_prefix(branch):
+    """True if `branch` starts with a negated class that cannot exclude 'json.'."""
+    m = _LEADING_NEGATED_CLASS_RE.match(branch)
+    if not m:
+        return False
+    excluded = set(re.sub(r"\\(.)", r"\1", m.group(1)))
+    return not (excluded & _JSON_PREFIX_CHARS)
+
+
+def _tolerates_json_prefix(op_arg):
+    """True if the ^-anchored pattern still matches values with a 'json.' prefix.
+
+    Some CRS patterns anchor to the start of the value but lead with a negated
+    character class (e.g. "^[^!&()]*)" or "^(?:[^']*'|[^"]*")"). Since none of
+    the excluded characters appear in the literal "json." prefix, that leading
+    class simply consumes the prefix as part of its match, so the rule keeps
+    matching JSON-prefixed parameter names even without an explicit
+    "(?:json\\.)?" — only one alternative needs to tolerate it, since the
+    others still fire whenever this one doesn't.
+    """
+    remainder = op_arg[1:]  # strip leading '^'
+    group_body = _leading_group_body(remainder)
+    branches = _split_top_level_alternatives(group_body) if group_body is not None else [remainder]
+    return any(_branch_absorbs_json_prefix(branch) for branch in branches)
+
 
 class ArgsNamesJsonPrefix(Rule):
     """Check that ARGS_NAMES rules with start-anchored operators include a (?:json\\.)? prefix.
@@ -87,7 +178,8 @@ class ArgsNamesJsonPrefix(Rule):
             if not operator_raw:
                 continue
 
-            operator = operator_raw.replace("!", "").replace("@", "").lower()
+            operator_display = operator_raw.replace("!", "").replace("@", "")
+            operator = operator_display.lower()
             op_arg = d.get("operator_argument") or ""
             lineno = d.get("oplineno", d.get("lineno", 1))
 
@@ -96,13 +188,17 @@ class ArgsNamesJsonPrefix(Rule):
                     line=lineno,
                     end_line=lineno,
                     desc=(
-                        f"ARGS_NAMES targeted with @{operator} which does not handle the "
+                        f"ARGS_NAMES targeted with @{operator_display} which does not handle the "
                         f"'json.' prefix added by libModSecurity3/Coraza to JSON parameter "
                         f"names. Replace with '@rx ^(?:json\\.)?...'; rule id: {current_ruleid}"
                     ),
                     rule="args_names_json_prefix",
                 )
-            elif operator == "rx" and _MISSING_JSON_PREFIX_RE.match(op_arg):
+            elif (
+                operator == "rx"
+                and _MISSING_JSON_PREFIX_RE.match(op_arg)
+                and not _tolerates_json_prefix(op_arg)
+            ):
                 yield LintProblem(
                     line=lineno,
                     end_line=lineno,
