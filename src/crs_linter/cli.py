@@ -32,6 +32,15 @@ def get_lines_from_file(filename):
     return lines
 
 
+def _get_string_list(config, key, filename):
+    """Get a config value, failing if it isn't a list of strings"""
+    value = config.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        logger.error(f"Config file: {filename}: '{key}' must be a list of strings")
+        sys.exit(1)
+    return value
+
+
 def load_config(filename):
     """Load approved_tags, filename_exclusions and test_exclusions from a TOML config file"""
     try:
@@ -45,9 +54,9 @@ def load_config(filename):
         sys.exit(1)
 
     return (
-        config.get("approved_tags", []),
-        config.get("filename_exclusions", []),
-        config.get("test_exclusions", []),
+        _get_string_list(config, "approved_tags", filename),
+        _get_string_list(config, "filename_exclusions", filename),
+        _get_string_list(config, "test_exclusions", filename),
     )
 
 
@@ -119,9 +128,10 @@ def read_files(filenames, fail_fast=False):
 
 def _arg_in_argv(argv, args):
     """ " If 'arg' was passed as argument, make it not required"""
-    for a in args:
-        if a in argv:
-            return False
+    for a in argv:
+        for opt in args:
+            if a == opt or (opt.startswith("--") and a.startswith(f"{opt}=")):
+                return False
     return True
 
 
