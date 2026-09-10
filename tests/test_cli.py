@@ -39,6 +39,68 @@ def test_cli(monkeypatch, tmp_path):
     assert ret == 0
 
 
+def test_cli_with_config(monkeypatch, tmp_path):
+    """Test that -c/--config loads tags/exclusions from a single TOML file"""
+    config = tmp_path / "crs-linter.toml"
+    config.write_text(
+        'approved_tags = []\nfilename_exclusions = []\ntest_exclusions = []\n'
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter",
+            "-v",
+            "4.10.0",
+            "-r",
+            "../examples/test1.conf",
+            "-r",
+            "../examples/test?.conf",
+            "-c",
+            str(config),
+            "-T",
+            "examples/test/regression/tests/",
+            "-d",
+            ".",
+        ],
+    )
+
+    ret = main()
+
+    assert ret == 0
+
+
+def test_cli_config_rejects_combination_with_flags(monkeypatch, tmp_path):
+    """Test that -c/--config cannot be combined with -t/-f/-E"""
+    config = tmp_path / "crs-linter.toml"
+    config.write_text("approved_tags = []\n")
+    approved_tags = tmp_path / "APPROVED_TAGS"
+    approved_tags.write_text("")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter",
+            "-v",
+            "4.10.0",
+            "-r",
+            "../examples/test1.conf",
+            "-c",
+            str(config),
+            "-t",
+            str(approved_tags),
+            "-d",
+            ".",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code != 0
+
+
 def test_cli_error_exit_code(monkeypatch, tmp_path):
     """Test that CLI returns non-zero exit code on error"""
     test_exclusions = tmp_path / "TEST_EXCLUSIONS"

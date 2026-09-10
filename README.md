@@ -80,11 +80,37 @@ Here's a full example with all recommended options (run from the `coreruleset` d
 | `-o, --output` | Output format: `native` (default) or `github` |
 | `--debug` | Enable debug information output |
 | `-v, --version` | CRS version string (auto-detected if not provided) |
+| `-c, --config` | Path to a TOML config file with `approved_tags`, `filename_exclusions` and `test_exclusions`. Replaces `-t`/`-f`/`-E`; cannot be combined with them |
 | `-f, --filename-tags-exclusions` | Path to file containing filenames exempt from filename tag checks |
 | `-T, --tests` | Path to test files directory |
 | `-E, --filename-tests-exclusions` | Path to file with rule ID prefixes excluded from test coverage checks |
 | `--head-ref` | Git HEAD ref from CI pipeline (helps determine version) |
 | `--commit-message` | PR commit message from CI (helps determine version for release commits) |
+
+`-t` is only required when `-c` is not given. Use either a single `-c` config file, or the individual `-t`/`-f`/`-E` flags — not both.
+
+### Config File
+
+Instead of `-t`, `-f` and `-E`, a single TOML file can be passed via `-c`:
+
+```toml
+approved_tags = [
+  "OWASP_CRS",
+  "attack-xss",
+]
+
+filename_exclusions = [
+  "crs-setup.conf.example",
+]
+
+test_exclusions = [
+  "932",
+]
+```
+
+```bash
+crs-linter -d /path/to/coreruleset -r 'rules/*.conf' -c .crs-linter.toml
+```
 
 ### Getting Help
 
@@ -97,7 +123,7 @@ crs-linter -h
 Example output:
 
 ```bash
-usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] -r CRS_RULES -t TAGSLIST [-v VERSION] [--head-ref HEAD_REF] [--commit-message COMMIT_MESSAGE]
+usage: crs-linter [-h] [-o {native,github}] -d DIRECTORY [--debug] [--fail-fast] -r CRS_RULES [-c CONFIG] -t TAGSLIST [-v VERSION] [--head-ref HEAD_REF] [--commit-message COMMIT_MESSAGE]
                   [-f FILENAME_TAGS_EXCLUSIONS] [-T TESTS] [-E FILENAME_TESTS_EXCLUSIONS]
 crs-linter: error: the following arguments are required: -d/--directory, -r/--rules, -t/--tags-list
 ```
