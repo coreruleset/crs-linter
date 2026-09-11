@@ -1,6 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "simple",
+  "version-file": "version.txt",
+  "changelog-path": "CHANGES.md",
   "include-v-in-tag": true,
   "include-component-in-tag": false,
   "packages": {
