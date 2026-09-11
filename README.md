@@ -153,6 +153,7 @@ The following rule names can be used in exemption comments:
 | Rule name | Description |
 | --- | --- |
 | `approved_tags` | [ApprovedTags](#approvedtags) |
+| `args_names_json_prefix` | [ArgsNamesJsonPrefix](#argsnamesjsonprefix) |
 | `capture` | [CheckCapture](#checkcapture) |
 | `crs_tag` | [CrsTag](#crstag) |
 | `deprecated` | [Deprecated](#deprecated) |
@@ -271,6 +272,52 @@ SecRule REQUEST_URI "@rx index.php" \
 
 To use a new tag on a rule, it must first be registered in the
 util/APPROVED_TAGS file.
+
+## ArgsNamesJsonPrefix
+
+**Source:** `src/crs_linter/rules/args_names_json_prefix.py`
+
+Check that ARGS_NAMES rules with start-anchored operators include a (?:json\.)? prefix.
+
+libModSecurity3 and Coraza prefix JSON body parameter names with 'json.' (e.g.
+the field 'username' in a JSON payload becomes 'json.username' in ARGS_NAMES),
+whereas ModSecurity2 does not add this prefix. Rules that anchor to the start of
+the parameter name must account for both forms by using '(?:json\.)?'.
+
+Affected operators when combined with ARGS_NAMES:
+- @rx:         when the pattern starts with '^' without a '(?:json...)' prefix
+- @beginsWith: always start-anchored
+- @streq:      always full-string match (equivalent to '^...$')
+
+Example of a failing rule (@rx without json prefix):
+
+```apache
+SecRule ARGS_NAMES "@rx ^username$" \
+    "id:1,phase:2,deny,t:none"
+# Fails: '^username$' will not match 'json.username' in JSON payloads on
+#        libModSecurity3/Coraza
+```
+
+
+Example of a failing rule (@beginsWith):
+
+```apache
+SecRule ARGS_NAMES "@beginsWith username" \
+    "id:2,phase:2,deny,t:none"
+# Fails: cannot match the 'json.' prefix; replace with @rx and (?:json\.)?
+```
+
+
+Example of the correct approach (@rx with json prefix):
+
+```apache
+SecRule ARGS_NAMES "@rx ^(?:json\.)?username$" \
+    "id:3,phase:2,deny,t:none"
+# OK: matches both 'username' (ModSec2) and 'json.username' (libModSec3/Coraza)
+```
+
+
+See: https://github.com/coreruleset/crs-linter/issues/154
 
 ## CheckCapture
 
