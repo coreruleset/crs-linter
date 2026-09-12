@@ -3,6 +3,7 @@
 import glob
 import pathlib
 import sys
+import tomllib
 import msc_pyparser
 import argparse
 import os.path
@@ -29,6 +30,34 @@ def get_lines_from_file(filename):
         sys.exit(1)
 
     return lines
+
+
+def _get_string_list(config, key, filename):
+    """Get a config value, failing if it isn't a list of strings"""
+    value = config.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        logger.error(f"Config file: {filename}: '{key}' must be a list of strings")
+        sys.exit(1)
+    return value
+
+
+def load_config(filename):
+    """Load approved_tags, filename_exclusions and test_exclusions from a TOML config file"""
+    try:
+        with open(filename, "rb") as fp:
+            config = tomllib.load(fp)
+    except FileNotFoundError:
+        logger.error(f"Can't open file: {filename}")
+        sys.exit(1)
+    except tomllib.TOMLDecodeError as e:
+        logger.error(f"Can't parse config file: {filename}: {e}")
+        sys.exit(1)
+
+    return (
+        _get_string_list(config, "approved_tags", filename),
+        _get_string_list(config, "filename_exclusions", filename),
+        _get_string_list(config, "test_exclusions", filename),
+    )
 
 
 def get_crs_version(directory, version=None, head_ref=None, commit_message=None):
@@ -99,9 +128,10 @@ def read_files(filenames, fail_fast=False):
 
 def _arg_in_argv(argv, args):
     """ " If 'arg' was passed as argument, make it not required"""
-    for a in args:
-        if a in argv:
-            return False
+    for a in argv:
+        for opt in args:
+            if a == opt or (opt.startswith("--") and a.startswith(f"{opt}=")):
+                return False
     return True
 
 
@@ -149,11 +179,19 @@ def parse_args(argv):
         required=True,
     )
     parser.add_argument(
+        "-c",
+        "--config",
+        dest="config",
+        help="Path to a TOML config file with approved_tags, filename_exclusions and "
+        "test_exclusions. Cannot be combined with -t/-f/-E.",
+        required=False,
+    )
+    parser.add_argument(
         "-t",
         "--tags-list",
         dest="tagslist",
         help="Path to file with permitted tags",
-        required=True,
+        required=_arg_in_argv(argv, ["-c", "--config"]),
     )
     parser.add_argument(
         "-v",
@@ -192,9 +230,21 @@ def parse_args(argv):
         "--filename-tests",
         dest="filename_tests_exclusions",
         help="Path to file with exclusions. Exclusions are either full rule IDs or rule ID prefixes (e.g., 932), one entry per line. Lines beginning with `#` are considered comments.",
-        required=not _arg_in_argv(argv, ["-T", "--test-directory"]),
+        required=(
+            not _arg_in_argv(argv, ["-T", "--test-directory"])
+            and _arg_in_argv(argv, ["-c", "--config"])
+        ),
     )
-    return parser.parse_args(argv)
+    parsed_args = parser.parse_args(argv)
+    if parsed_args.config and any(
+        (
+            parsed_args.tagslist,
+            parsed_args.filename_tags_exclusions,
+            parsed_args.filename_tests_exclusions,
+        )
+    ):
+        parser.error("argument -c/--config: not allowed with -t/-f/-E")
+    return parsed_args
 
 
 def main():
@@ -215,11 +265,19 @@ def main():
     crs_version = get_crs_version(
         args.directory, args.version, head_ref, commit_message
     )
-    tags = get_lines_from_file(args.tagslist)
-    # Check all files by default
-    filename_tags_exclusions = []
-    if args.filename_tags_exclusions is not None:
-        filename_tags_exclusions = get_lines_from_file(args.filename_tags_exclusions)
+    test_exclusion_list_from_config = None
+    if args.config is not None:
+        tags, filename_tags_exclusions, test_exclusion_list_from_config = load_config(
+            args.config
+        )
+    else:
+        tags = get_lines_from_file(args.tagslist)
+        # Check all files by default
+        filename_tags_exclusions = []
+        if args.filename_tags_exclusions is not None:
+            filename_tags_exclusions = get_lines_from_file(
+                args.filename_tags_exclusions
+            )
     parsed, file_contents = read_files(files, fail_fast=args.fail_fast)
     txvars = {} # Shared dict for tracking TX variables across all files
     ids = {}  # Shared dict for tracking rule IDs across all files
@@ -239,7 +297,10 @@ def main():
             logger.error(f"Can't open files in given path ({args.tests})!")
             sys.exit(1)
         # read the exclusion list
-        test_exclusion_list = get_lines_from_file(args.filename_tests_exclusions)
+        if args.config is not None:
+            test_exclusion_list = test_exclusion_list_from_config
+        else:
+            test_exclusion_list = get_lines_from_file(args.filename_tests_exclusions)
         test_cases = {}
         # find the yaml files
         # collect them in a dictionary and check for test
