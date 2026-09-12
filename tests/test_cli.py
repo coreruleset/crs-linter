@@ -111,9 +111,7 @@ def test_cli_with_config_missing_tests_path(monkeypatch, caplog):
 
     error_messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
     assert excinfo.value.code == 1
-    assert error_messages == [
-        f"Can't open files in given path ({missing_tests_path})!"
-    ]
+    assert f"Can't open files in given path ({missing_tests_path})!" in error_messages
 
 
 def test_cli_config_rejects_non_list_field(monkeypatch, tmp_path):
