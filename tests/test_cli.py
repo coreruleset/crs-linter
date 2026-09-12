@@ -109,8 +109,11 @@ def test_cli_with_config_missing_tests_path(monkeypatch, caplog):
     with pytest.raises(SystemExit) as excinfo:
         main()
 
+    error_messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
     assert excinfo.value.code == 1
-    assert f"Can't open files in given path ({missing_tests_path})!" in caplog.text
+    assert error_messages == [
+        f"Can't open files in given path ({missing_tests_path})!"
+    ]
 
 
 def test_cli_config_rejects_non_list_field(monkeypatch, tmp_path):
