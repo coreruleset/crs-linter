@@ -1,0 +1,8 @@
+approved_tags = [
+  "OWASP_CRS",
+  "OWASP_CRS/TEST",
+]
+
+filename_exclusions = []
+
+test_exclusions = []

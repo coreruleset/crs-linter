@@ -5,13 +5,13 @@ from crs_linter.cli import *
 from pathlib import Path
 from dulwich.errors import NotGitRepository
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EXAMPLE_CONFIG = REPO_ROOT / "examples" / "test" / "crs-linter.toml"
+EXAMPLE_RULE = REPO_ROOT / "examples" / "test" / "REQUEST-001-TEST.conf"
+EXAMPLE_TESTS = REPO_ROOT / "examples" / "test" / "regression" / "tests"
 
-def test_cli(monkeypatch, tmp_path):
-    approved_tags = tmp_path / "APPROVED_TAGS"
-    test_exclusions = tmp_path / "TEST_EXCLUSIONS"
-    approved_tags.write_text("")
-    test_exclusions.write_text("")
 
+def test_cli(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
@@ -20,49 +20,13 @@ def test_cli(monkeypatch, tmp_path):
             "-v",
             "4.10.0",
             "-r",
-            "../examples/test1.conf",
-            "-r",
-            "../examples/test?.conf",
-            "-t",
-            str(approved_tags),
-            "-T",
-            "examples/test/regression/tests/",
-            "-E",
-            str(test_exclusions),
-            "-d",
-            ".",
-        ],
-    )
-
-    ret = main()
-
-    assert ret == 0
-
-
-def test_cli_with_config(monkeypatch, tmp_path):
-    """Test that -c/--config loads tags/exclusions from a single TOML file"""
-    config = tmp_path / "crs-linter.toml"
-    config.write_text(
-        'approved_tags = []\nfilename_exclusions = []\ntest_exclusions = []\n'
-    )
-
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "crs-linter",
-            "-v",
-            "4.10.0",
-            "-r",
-            "../examples/test1.conf",
-            "-r",
-            "../examples/test?.conf",
+            str(EXAMPLE_RULE),
             "-c",
-            str(config),
+            str(EXAMPLE_CONFIG),
             "-T",
-            "examples/test/regression/tests/",
+            str(EXAMPLE_TESTS),
             "-d",
-            ".",
+            str(REPO_ROOT),
         ],
     )
 
@@ -71,13 +35,8 @@ def test_cli_with_config(monkeypatch, tmp_path):
     assert ret == 0
 
 
-def test_cli_with_config_equals_form(monkeypatch, tmp_path):
-    """Test that --config=path (GNU '--opt=value' form) satisfies the -t/-E requirement"""
-    config = tmp_path / "crs-linter.toml"
-    config.write_text(
-        'approved_tags = []\nfilename_exclusions = []\ntest_exclusions = []\n'
-    )
-
+def test_cli_with_config(monkeypatch):
+    """Test that -c/--config loads tags/exclusions from a single TOML file."""
     monkeypatch.setattr(
         sys,
         "argv",
@@ -86,14 +45,37 @@ def test_cli_with_config_equals_form(monkeypatch, tmp_path):
             "-v",
             "4.10.0",
             "-r",
-            "../examples/test1.conf",
-            "-r",
-            "../examples/test?.conf",
-            f"--config={config}",
+            str(EXAMPLE_RULE),
+            "-c",
+            str(EXAMPLE_CONFIG),
             "-T",
-            "examples/test/regression/tests/",
+            str(EXAMPLE_TESTS),
             "-d",
-            ".",
+            str(REPO_ROOT),
+        ],
+    )
+
+    ret = main()
+
+    assert ret == 0
+
+
+def test_cli_with_config_equals_form(monkeypatch):
+    """Test that --config=path (GNU '--opt=value' form) satisfies the -t/-E requirement."""
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter",
+            "-v",
+            "4.10.0",
+            "-r",
+            str(EXAMPLE_RULE),
+            f"--config={EXAMPLE_CONFIG}",
+            "-T",
+            str(EXAMPLE_TESTS),
+            "-d",
+            str(REPO_ROOT),
         ],
     )
 
