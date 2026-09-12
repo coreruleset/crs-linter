@@ -87,6 +87,7 @@ def test_cli_with_config_equals_form(monkeypatch):
 def test_cli_with_config_missing_tests_path(monkeypatch, caplog):
     """Test that repo-rooted config usage still fails cleanly for missing example paths."""
     caplog.set_level("ERROR")
+    missing_tests_path = REPO_ROOT / "examples" / "test" / "regression" / "missing"
     monkeypatch.setattr(
         sys,
         "argv",
@@ -99,7 +100,7 @@ def test_cli_with_config_missing_tests_path(monkeypatch, caplog):
             "-c",
             str(EXAMPLE_CONFIG),
             "-T",
-            str(REPO_ROOT / "examples" / "test" / "regression" / "missing"),
+            str(missing_tests_path),
             "-d",
             str(REPO_ROOT),
         ],
@@ -109,7 +110,7 @@ def test_cli_with_config_missing_tests_path(monkeypatch, caplog):
         main()
 
     assert excinfo.value.code == 1
-    assert "Can't open files in given path" in caplog.text
+    assert f"Can't open files in given path ({missing_tests_path})!" in caplog.text
 
 
 def test_cli_config_rejects_non_list_field(monkeypatch, tmp_path):
