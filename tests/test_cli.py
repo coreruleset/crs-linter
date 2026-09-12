@@ -84,6 +84,32 @@ def test_cli_with_config_equals_form(monkeypatch):
     assert ret == 0
 
 
+def test_cli_with_config_missing_tests_path(monkeypatch):
+    """Test that repo-rooted config usage still fails cleanly for missing example paths."""
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter",
+            "-v",
+            "4.10.0",
+            "-r",
+            str(EXAMPLE_RULE),
+            "-c",
+            str(EXAMPLE_CONFIG),
+            "-T",
+            str(REPO_ROOT / "examples" / "test" / "regression" / "missing"),
+            "-d",
+            str(REPO_ROOT),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+
+    assert excinfo.value.code == 1
+
+
 def test_cli_config_rejects_non_list_field(monkeypatch, tmp_path):
     """Test that a scalar value for approved_tags/filename_exclusions/test_exclusions is rejected"""
     config = tmp_path / "crs-linter.toml"
