@@ -11,6 +11,7 @@ from .rules import (
     approved_tags,
     args_names_json_prefix,
     check_capture,
+    collection_capture_chain,
     crs_tag,
     deprecated,
     duplicated,
