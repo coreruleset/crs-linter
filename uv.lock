@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 
 [[package]]
@@ -149,7 +149,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dulwich", specifier = ">=1.2.5,<1.3.0" },
-    { name = "github-action-utils", specifier = ">=1.1.0,<2.0.0" },
+    { name = "github-action-utils", specifier = ">=2.0.0,<2.1.0" },
     { name = "msc-pyparser", specifier = ">=1.2.1" },
     { name = "semver", specifier = ">=3.0.2,<4.0.0" },
 ]
@@ -223,11 +223,11 @@ wheels = [
 
 [[package]]
 name = "github-action-utils"
-version = "1.1.0"
+version = "2.0.0"
 source = { registry = "https://pypi.org/simple/" }
-sdist = { url = "https://files.pythonhosted.org/packages/41/81/b70e3be8686c2011ec03eddf5a695496c9935818b18cde6a5f9553127a4e/github-action-utils-1.1.0.tar.gz", hash = "sha256:8aa40d90b89d814004160bb7e90b42cc07b55f41f66e4a4a32766d26c9ca3d61", size = 8860, upload-time = "2022-10-17T14:28:57.931Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/db/411ca7d35ae52a20397ac53c3e78ec1e903f1e545c84a00d5462e6b88a79/github_action_utils-2.0.0.tar.gz", hash = "sha256:4e5c3dc3df2ba976eeb3b9383bfba547ab8d7318a0f941c276ff766668b5754e", size = 105485, upload-time = "2026-10-20T07:03:27.73Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/c8/d2a1c4ac43c9194316b8802b08502712ef242e6f325435409688e760b03a/github_action_utils-1.1.0-py2.py3-none-any.whl", hash = "sha256:bc84bac22e8a25ebe86370b08ff2c174960e468e899ffd313cb09d19629acefb", size = 8893, upload-time = "2022-10-17T14:28:56.215Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/c1/87da647964ad99b24aa0c8ac0751aa08e3c1b7e4327859e104a99f912c31/github_action_utils-2.0.0-py3-none-any.whl", hash = "sha256:1ad4fbde49f287e32b586728c90b84da222aa9a348a61bbfe159a7db60389e96", size = 21945, upload-time = "2026-10-20T07:03:26.69Z" },
 ]
 
 [[package]]
