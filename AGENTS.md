@@ -51,7 +51,7 @@ Each rule is a class deriving from `Rule` in `src/crs_linter/rules/<snake_case>.
 4. **Import the module in the `from .rules import (...)` block in `src/crs_linter/linter.py`.** Registration happens when the class is defined (the metaclass instantiates it), so the import is what triggers it. A rule file that is not imported there never runs.
 5. Add tests, then regenerate the docs.
 
-Available `args` include `data`, `filename`, `content`, `file_content`, `globtxvars`, `ids`, `tags`/`tagslist`, `test_cases`, `exclusion_list` and `version`/`crs_version`. The list is in `DEVELOPMENT.md`, section 7.
+Available `args` include `data`, `filename`, `content`, `file_content`, `globtxvars`, `ids`, `tags`, `test_cases`, `exclusion_list` and `version`. See `Rules.get_rule_configs()` in `src/crs_linter/rules_metadata.py` for the supported mappings.
 
 Things that are easy to get wrong:
 
