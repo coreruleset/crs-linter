@@ -26,6 +26,18 @@ SecRule ARGS "@rx foo" "id:1001"
         assert 'lowercase_ignorecase' in rule_names
         assert end_line == 3
 
+    def test_whitespace_after_octothorpe(self):
+        """Test exemption parsing when whitespace follows the octothorpe."""
+        content = """
+# crs-linter:ignore:lowercase_ignorecase
+SecRule ARGS "@rx foo" "id:1001"
+"""
+        exemptions = parse_exemptions(content)
+        assert 3 in exemptions
+        end_line, rule_names = exemptions[3]
+        assert 'lowercase_ignorecase' in rule_names
+        assert end_line == 3
+
     def test_multiple_rules_in_exemption(self):
         """Test exemption with multiple rule names."""
         content = """
