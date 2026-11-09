@@ -80,7 +80,7 @@ Here's a full example with all recommended options (run from the `coreruleset` d
 | `-o, --output` | Output format: `native` (default) or `github` |
 | `--debug` | Enable debug information output |
 | `-v, --version` | CRS version string (auto-detected if not provided) |
-| `-c, --config` | Path to a TOML config file with `approved_tags`, `filename_exclusions` and `test_exclusions`. Replaces `-t`/`-f`/`-E`; cannot be combined with them |
+| `-c, --config` | Path to a TOML config file with `approved_tags`, `filename_exclusions`, `test_exclusions` and `enable_checks`. Replaces `-t`/`-f`/`-E`; cannot be combined with them |
 | `-f, --filename-tags-exclusions` | Path to file containing filenames exempt from filename tag checks |
 | `-T, --tests` | Path to test files directory |
 | `-E, --filename-tests-exclusions` | Path to file with rule ID prefixes excluded from test coverage checks |
@@ -105,6 +105,11 @@ filename_exclusions = [
 
 test_exclusions = [
   "932",
+]
+
+# opt-in checks, off unless listed here
+enable_checks = [
+  "rx_lowercase",
 ]
 ```
 
@@ -849,6 +854,10 @@ after t:lowercase) are exempted with:
 
 
 Rules that also use (?i) are reported by lowercase_ignorecase instead.
+
+This check is opt-in, so older CRS releases and plugins are not affected.
+Enable it in the config file passed with -c:
+    enable_checks = ["rx_lowercase"]
 
 ## StandaloneTxn
 

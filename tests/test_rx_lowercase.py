@@ -47,7 +47,7 @@ import pytest
     nolog"''', 0, "@pm is not checked"),
 ])
 def test_rx_lowercase_detection(run_linter, rule, expected_count, description):
-    problems = run_linter(rule, rule_type="rx_lowercase")
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
 
     assert len(problems) == expected_count, \
         f"{description}: expected {expected_count} problems, got {len(problems)}"
@@ -64,7 +64,7 @@ def test_rx_lowercase_chain_link(run_linter):
     SecRule MATCHED_VAR "@rx bar" \\
         "t:lowercase"'''
 
-    problems = run_linter(rule, rule_type="rx_lowercase")
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
 
     assert len(problems) == 1
     assert "7001" in problems[0].desc
@@ -80,6 +80,32 @@ SecRule ARGS "@rx foo" \\
     t:lowercase,\\
     nolog"'''
 
-    problems = run_linter(rule, rule_type="rx_lowercase")
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
 
     assert len(problems) == 0
+
+
+def test_rx_lowercase_is_opt_in(run_linter):
+    """Without enable_checks the check does not run."""
+    rule = '''SecRule ARGS "@rx foo" \\
+    "id:7003,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"'''
+
+    assert run_linter(rule, rule_type="rx_lowercase") == []
+
+
+def test_rx_lowercase_scoped_flag_with_negation(run_linter):
+    """(?i-s:...) enables ignorecase, so rx_lowercase leaves it to lowercase_ignorecase."""
+    rule = '''SecRule ARGS "@rx (?i-s:foo)" \\
+    "id:7004,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"'''
+
+    problems = run_linter(rule, enabled_checks=["rx_lowercase"])
+
+    assert [p.rule for p in problems if p.rule in ("rx_lowercase", "lowercase_ignorecase")] == ["lowercase_ignorecase"]

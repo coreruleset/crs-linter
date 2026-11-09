@@ -35,6 +35,8 @@ class Rule(ABC, metaclass=RuleMeta):
         self.args = ()
         self.kwargs = {}
         self.condition_func = None
+        # opt-in checks only run when listed in the config's enable_checks
+        self.opt_in = False
     
     def get_messages(self) -> Tuple[str, str, str]:
         """Get success, error, and title messages for this rule."""

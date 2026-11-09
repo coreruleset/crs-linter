@@ -26,6 +26,10 @@ class RxLowercase(Rule):
         #crs-linter:ignore:rx_lowercase
 
     Rules that also use (?i) are reported by lowercase_ignorecase instead.
+
+    This check is opt-in, so older CRS releases and plugins are not affected.
+    Enable it in the config file passed with -c:
+        enable_checks = ["rx_lowercase"]
     """
 
     def __init__(self):
@@ -34,6 +38,7 @@ class RxLowercase(Rule):
         self.error_message = "Found @rx rule(s) using t:lowercase"
         self.error_title = "t:lowercase with @rx"
         self.args = ("data",)
+        self.opt_in = True
 
     def check(self, data):
         """check for t:lowercase on @rx rules"""

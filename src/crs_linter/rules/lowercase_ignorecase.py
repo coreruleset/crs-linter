@@ -3,8 +3,9 @@ import re
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rule import Rule
 
-# (?i), (?is), (?i:...) anywhere in the pattern; (?-i) turns the flag off
-IGNORECASE_FLAG = re.compile(r"\(\?[a-zA-Z]*i[a-zA-Z]*[:)]")
+# (?i), (?is), (?i-s:...) anywhere in the pattern; (?-i) turns the flag off.
+# A plain text search, so a literal "(?i)" inside [...] also counts; no CRS rule has one
+IGNORECASE_FLAG = re.compile(r"\(\?[a-zA-Z]*i[a-zA-Z]*(?:-[a-zA-Z]*)?[:)]")
 
 
 class LowercaseIgnorecase(Rule):
