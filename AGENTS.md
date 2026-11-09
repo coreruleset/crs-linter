@@ -45,7 +45,7 @@ generate_rules_docs.py  # builds README sections from rule docstrings
 
 Each rule is a class deriving from `Rule` in `src/crs_linter/rules/<snake_case>.py`.
 
-1. Set `success_message`, `error_message`, `error_title` and `args` (and optionally `kwargs`, `condition_func`) in `__init__`.
+1. In `__init__`, call `super().__init__()` first, then set `success_message`, `error_message`, `error_title` and `args` (and optionally `kwargs`, `condition_func`). The base initializer sets `name`, `kwargs` and `condition_func`, which `Rules.get_rule_configs()` reads for every rule; without it the linter fails with `AttributeError` before any check runs.
 2. Implement `check(...)` as a generator yielding `LintProblem` objects. Its parameters must match `self.args`.
 3. Write a full class docstring. It becomes the rule's documentation in `README.md`, including a failing and a passing example.
 4. **Import the module in the `from .rules import (...)` block in `src/crs_linter/linter.py`.** Registration happens when the class is defined (the metaclass instantiates it), so the import is what triggers it. A rule file that is not imported there never runs.
@@ -82,7 +82,8 @@ CI downloads a CRS release and lints it (see `.github/workflows/test.yml` for th
 ## Commits, PRs and releases
 
 - Releases are automated with release-please (`.github/release-please-config.json`): use Conventional Commit prefixes (`feat:`, `fix:`, `docs:`, `chore:`). Do not edit `version.txt` or `CHANGES.md` by hand.
-- The version comes from git tags (`hatch-vcs`). Shallow clones may warn about it; that is harmless. Use `-v` to give the CLI a version explicitly.
+- The package version comes from git tags (`hatch-vcs`). Shallow clones may warn about it; that is harmless.
+- `-v` is something else: the CRS version that the `ver` check compares rules against. Without it, the linter derives the CRS version from `git describe --tags` in the CRS directory given with `-d`, so pass `-v` when that directory is not a git checkout with tags (a release tarball, as in CI).
 - Dependencies are updated by Renovate. Do not hand-edit `uv.lock`; use `uv`.
 - If AI tools helped write a change, say so in the PR description and state what you actually verified.
 
