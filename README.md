@@ -192,6 +192,7 @@ The following rule names can be used in exemption comments:
 | `pass_nolog` | [PassNolog](#passnolog) |
 | `pl_consistency` | [PlConsistency](#plconsistency) |
 | `rule_tests` | [RuleTests](#ruletests) |
+| `rx_lowercase` | [RxLowercase](#rxlowercase) |
 | `standalonetxn` | [StandaloneTxn](#standalonetxn) |
 | `variables_usage` | [VariablesUsage](#variablesusage) |
 | `version` | [Version](#version) |
@@ -609,6 +610,9 @@ The rule should use either:
 - t:lowercase with a case-sensitive regex: "@rx foo"
 - (?i) flag without t:lowercase transformation
 
+The flag is found anywhere in the regex, including `^(?i)foo` and the
+scoped form `(?i:foo)`.
+
 ## NoNegatedRequestCookies
 
 **Source:** `src/crs_linter/rules/no_negated_request_cookies.py`
@@ -810,6 +814,41 @@ To fix: Add a test case to your test suite that exercises this rule.
 
 Use the -E flag to provide a file with rule ID prefixes that should be
 excluded from this check.
+
+## RxLowercase
+
+**Source:** `src/crs_linter/rules/rx_lowercase.py`
+
+Check that @rx rules use the (?i) flag instead of t:lowercase.
+
+CRS matches case-insensitively with the (?i) regex flag (`##!+ i` in
+regex-assembly files). t:lowercase is kept for operators without a flag,
+such as @within, @streq or @contains. Unlike t:lowercase, (?i) keeps the
+original casing in MATCHED_VAR and logdata, and does not depend on the
+transformation pipeline.
+
+Example of a failing rule (t:lowercase with @rx):
+
+```apache
+SecRule ARGS "@rx foo" \
+    "id:1,\
+    phase:1,\
+    pass,\
+    t:lowercase,\  # Fails: use "@rx (?i)foo" instead
+    nolog"
+```
+
+
+Rules that need the lowercased value itself (a capture stored for a
+later @within, or a case-sensitive transformation such as t:jsDecode
+after t:lowercase) are exempted with:
+
+```apache
+#crs-linter:ignore:rx_lowercase
+```
+
+
+Rules that also use (?i) are reported by lowercase_ignorecase instead.
 
 ## StandaloneTxn
 

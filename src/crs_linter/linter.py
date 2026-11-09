@@ -22,6 +22,7 @@ from .rules import (
     pass_nolog,
     pl_consistency,
     rule_tests,
+    rx_lowercase,
     standalone_txn,
     variables_usage,
     version

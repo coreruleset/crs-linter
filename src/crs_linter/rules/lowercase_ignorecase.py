@@ -1,5 +1,10 @@
+import re
+
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rule import Rule
+
+# (?i), (?is), (?i:...) anywhere in the pattern; (?-i) turns the flag off
+IGNORECASE_FLAG = re.compile(r"\(\?[a-zA-Z]*i[a-zA-Z]*[:)]")
 
 
 class LowercaseIgnorecase(Rule):
@@ -20,6 +25,9 @@ class LowercaseIgnorecase(Rule):
     The rule should use either:
     - t:lowercase with a case-sensitive regex: "@rx foo"
     - (?i) flag without t:lowercase transformation
+
+    The flag is found anywhere in the regex, including `^(?i)foo` and the
+    scoped form `(?i:foo)`.
     """
 
     def __init__(self):
@@ -36,7 +44,7 @@ class LowercaseIgnorecase(Rule):
             if d["type"].lower() == "secrule":
                 if d["operator"] == "@rx":
                     regex = d["operator_argument"]
-                    if regex.startswith("(?i)"):
+                    if IGNORECASE_FLAG.search(regex):
                         if "actions" in d:
                             for a in d["actions"]:
                                 if a["act_name"] == "id":

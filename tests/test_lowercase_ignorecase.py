@@ -98,7 +98,31 @@ import pytest
     phase:1,\\
     pass,\\
     t:lowercase,\\
-    nolog"''', 0, "(?i) not at start is not checked"),
+    nolog"''', 1, "(?i) in middle of regex is redundant"),
+
+    # Invalid: (?i) after an anchor
+    ('''SecRule ARGS "@rx ^(?i)foo" \\
+    "id:13,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 1, "(?i) after ^ is redundant"),
+
+    # Invalid: scoped (?i:...) group and combined flags
+    ('''SecRule ARGS "@rx (?i:foo)|(?si)bar" \\
+    "id:14,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 1, "(?i:...) and (?si) are redundant"),
+
+    # Valid: (?-i) turns case folding off
+    ('''SecRule ARGS "@rx (?-i)foo" \\
+    "id:15,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 0, "(?-i) is not an ignorecase flag"),
 ])
 def test_lowercase_ignorecase_detection(run_linter, rule, expected_count, description):
     """Test detection of redundant t:lowercase with (?i) flag."""
