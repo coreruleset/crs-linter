@@ -98,7 +98,7 @@ import pytest
     phase:1,\\
     pass,\\
     t:lowercase,\\
-    nolog"''', 1, "(?i) in middle of regex is redundant"),
+    nolog"''', 0, "(?i) in the middle of the regex leaves foo case-sensitive"),
 
     # Invalid: (?i) after an anchor
     ('''SecRule ARGS "@rx ^(?i)foo" \\
@@ -115,6 +115,34 @@ import pytest
     pass,\\
     t:lowercase,\\
     nolog"''', 1, "(?i:...) and (?si) are redundant"),
+
+    # Valid: the flag covers only part of the pattern, so t:lowercase is still needed for bar
+    ('''SecRule ARGS "@rx (?i:foo)|bar" \\
+    "id:16,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 0, "partial (?i:...) is not redundant"),
+
+    # Valid: a setvar reads the lowercased capture
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:17,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:lowercase,\\
+    setvar:'tx.x=%{tx.0}',\\
+    nolog"''', 0, "a setvar reads the lowercased capture"),
+
+    # Invalid: capture alone only feeds logdata, (?i) can replace t:lowercase
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:18,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:lowercase,\\
+    logdata:'%{tx.0}',\\
+    nolog"''', 1, "capture used only in logdata is redundant"),
 
     # Valid: (?-i) turns case folding off
     ('''SecRule ARGS "@rx (?-i)foo" \\

@@ -109,3 +109,101 @@ def test_rx_lowercase_scoped_flag_with_negation(run_linter):
     problems = run_linter(rule, enabled_checks=["rx_lowercase"])
 
     assert [p.rule for p in problems if p.rule in ("rx_lowercase", "lowercase_ignorecase")] == ["lowercase_ignorecase"]
+
+
+@pytest.mark.parametrize("rule,expected_count,description", [
+    ('''SecRule ARGS "@rx (?i:foo)bar" \\
+    "id:7101,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 1, "partly flagged pattern is reported with a hint"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7102,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:none,t:lowercase,\\
+    setvar:'tx.x=%{tx.0}',\\
+    nolog"''', 0, "capture needs the lowercased value"),
+
+    ('''SecRule ARGS "@rx ^[0-9]+$" \\
+    "id:7103,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 0, "no letters in the pattern"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7104,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:jsDecode,\\
+    nolog"''', 0, "a decoder after t:lowercase can bring upper case back"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7105,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:urlDecode,t:lowercase,\\
+    nolog"''', 1, "a decoder before t:lowercase does not matter"),
+
+    ('''SecRule ARGS "foo" \\
+    "id:7106,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 1, "implicit @rx"),
+
+    ('''SecRule ARGS "@Rx foo" \\
+    "id:7107,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 1, "@Rx"),
+
+    ('''SecRule ARGS "@rx (foo" \\
+    "id:7108,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 0, "unparsable pattern is left alone"),
+])
+def test_rx_lowercase_coverage(run_linter, rule, expected_count, description):
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
+
+    assert len(problems) == expected_count, \
+        f"{description}: expected {expected_count} problems, got {len(problems)}"
+
+
+def test_rx_lowercase_partial_hint(run_linter):
+    rule = '''SecRule ARGS "@rx (?i:foo)bar" \\
+    "id:7109,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"'''
+
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
+
+    assert "whole pattern" in problems[0].desc
+
+
+def test_rx_lowercase_rule_id_is_not_carried_over(run_linter):
+    """A rule without an id is not reported under the previous rule's id."""
+    rule = '''SecRule ARGS "@rx foo" \\
+    "id:7110,\\
+    phase:1,\\
+    pass,\\
+    nolog"
+SecRule ARGS "@rx bar" \\
+    "phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"'''
+
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
+
+    assert len(problems) == 1
+    assert "7110" not in problems[0].desc

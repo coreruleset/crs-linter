@@ -1,6 +1,6 @@
+from crs_linter.ignorecase import Coverage, lowercase_rx_rules
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rule import Rule
-from crs_linter.rules.lowercase_ignorecase import IGNORECASE_FLAG
 
 
 class RxLowercase(Rule):
@@ -20,12 +20,22 @@ class RxLowercase(Rule):
             t:lowercase,\\  # Fails: use "@rx (?i)foo" instead
             nolog"
 
-    Rules that need the lowercased value itself (a capture stored for a
-    later @within, or a case-sensitive transformation such as t:jsDecode
-    after t:lowercase) are exempted with:
-        #crs-linter:ignore:rx_lowercase
+    Only rules where (?i) can replace t:lowercase without changing what the
+    rule does are reported. These are left alone:
+    - rules whose lowercased value is read later (MATCHED_VAR or %{tx.0} in a
+      setvar or a chained rule), because t:lowercase normalises that value
+      and (?i) would not (see rule 920450). Logging only (logdata) does not count
+    - patterns with no letters, where t:lowercase can only matter for the value
+    - rules with a decoding transformation after t:lowercase (t:urlDecode,
+      t:jsDecode, ...), which can bring upper case back, so (?i) would match more
+    - patterns the flag parser does not understand (recursion, conditionals)
+    - patterns already fully covered by (?i), which lowercase_ignorecase reports
 
-    Rules that also use (?i) are reported by lowercase_ignorecase instead.
+    A pattern that is only partly flagged, such as `(?i:foo)bar`, is reported
+    with a hint to put the whole pattern under (?i).
+
+    Rules that still need t:lowercase for another reason are exempted with:
+        #crs-linter:ignore:rx_lowercase
 
     This check is opt-in, so older CRS releases and plugins are not affected.
     Enable it in the config file passed with -c:
@@ -42,20 +52,18 @@ class RxLowercase(Rule):
 
     def check(self, data):
         """check for t:lowercase on @rx rules"""
-        ruleid = 0
-        for d in data:
-            if d["type"].lower() != "secrule" or "actions" not in d:
+        for ruleid, lowered, coverage, reads, decodes in lowercase_rx_rules(data):
+            if reads or decodes or coverage not in (Coverage.NONE, Coverage.PARTIAL):
                 continue
-            for a in d["actions"]:
-                if a["act_name"] == "id":
-                    ruleid = int(a["act_arg"])
-            if d["operator"] != "@rx" or IGNORECASE_FLAG.search(d["operator_argument"]):
-                continue
-            for a in d["actions"]:
-                if a["act_name"] == "t" and a["act_arg"].lower() == "lowercase":
-                    yield LintProblem(
-                        line=a["lineno"],
-                        end_line=a["lineno"],
-                        desc=f"rule uses t:lowercase with @rx, use the (?i) flag instead; rule id: {ruleid}",
-                        rule="rx_lowercase",
-                    )
+            hint = (
+                "part of the pattern is not covered by (?i), put the whole pattern under (?i)"
+                if coverage is Coverage.PARTIAL
+                else "use the (?i) flag instead"
+            )
+            for a in lowered:
+                yield LintProblem(
+                    line=a["lineno"],
+                    end_line=a["lineno"],
+                    desc=f"rule uses t:lowercase with @rx, {hint}; rule id: {ruleid}",
+                    rule="rx_lowercase",
+                )

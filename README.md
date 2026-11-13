@@ -615,8 +615,12 @@ The rule should use either:
 - t:lowercase with a case-sensitive regex: "@rx foo"
 - (?i) flag without t:lowercase transformation
 
-The flag is found anywhere in the regex, including `^(?i)foo` and the
-scoped form `(?i:foo)`.
+The check only fires when the flag covers the whole pattern, as in
+`^(?i)foo`, `(?si)foo` or a `(?i:...)` group spanning everything. A pattern
+with only part of it flagged, such as `(?i:foo)|bar`, still needs
+t:lowercase for the rest, and a rule whose lowercased value is read later
+(MATCHED_VAR, %{tx.0} in a setvar or a chained rule) needs t:lowercase
+itself, so neither is reported.
 
 ## NoNegatedRequestCookies
 
@@ -844,16 +848,26 @@ SecRule ARGS "@rx foo" \
 ```
 
 
-Rules that need the lowercased value itself (a capture stored for a
-later @within, or a case-sensitive transformation such as t:jsDecode
-after t:lowercase) are exempted with:
+Only rules where (?i) can replace t:lowercase without changing what the
+rule does are reported. These are left alone:
+- rules whose lowercased value is read later (MATCHED_VAR or %{tx.0} in a
+  setvar or a chained rule), because t:lowercase normalises that value
+  and (?i) would not (see rule 920450). Logging only (logdata) does not count
+- patterns with no letters, where t:lowercase can only matter for the value
+- rules with a decoding transformation after t:lowercase (t:urlDecode,
+  t:jsDecode, ...), which can bring upper case back, so (?i) would match more
+- patterns the flag parser does not understand (recursion, conditionals)
+- patterns already fully covered by (?i), which lowercase_ignorecase reports
+
+A pattern that is only partly flagged, such as `(?i:foo)bar`, is reported
+with a hint to put the whole pattern under (?i).
+
+Rules that still need t:lowercase for another reason are exempted with:
 
 ```apache
 #crs-linter:ignore:rx_lowercase
 ```
 
-
-Rules that also use (?i) are reported by lowercase_ignorecase instead.
 
 This check is opt-in, so older CRS releases and plugins are not affected.
 Enable it in the config file passed with -c:

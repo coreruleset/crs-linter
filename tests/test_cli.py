@@ -330,3 +330,40 @@ def test_parsing_failure_continues_without_fail_fast(monkeypatch, tmp_path):
 
     # Should return 0 because the valid file has no linting issues
     assert ret == 0
+
+
+def test_cli_config_rejects_unknown_enable_checks(monkeypatch, tmp_path):
+    """An enable_checks name that is not an opt-in check is rejected"""
+    config = tmp_path / "crs-linter.toml"
+    config.write_text('enable_checks = ["no_such_check"]\n')
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["crs-linter", "-v", "4.10.0", "-r", "../examples/test1.conf", "-c", str(config), "-d", "."],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code == 1
+
+
+def test_cli_config_accepts_enable_checks(monkeypatch, tmp_path):
+    """A known opt-in check in enable_checks is accepted"""
+    config = tmp_path / "crs-linter.toml"
+    config.write_text(
+        'approved_tags = []\nfilename_exclusions = []\ntest_exclusions = []\n'
+        'enable_checks = ["rx_lowercase"]\n'
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "crs-linter", "-v", "4.10.0", "-r", "../examples/test1.conf",
+            "-r", "../examples/test?.conf", "-c", str(config),
+            "-T", "examples/test/regression/tests/", "-d", ".",
+        ],
+    )
+
+    assert main() == 0

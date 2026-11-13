@@ -1,11 +1,6 @@
-import re
-
+from crs_linter.ignorecase import Coverage, lowercase_rx_rules
 from crs_linter.lint_problem import LintProblem
 from crs_linter.rule import Rule
-
-# (?i), (?is), (?i-s:...) anywhere in the pattern; (?-i) turns the flag off.
-# A plain text search, so a literal "(?i)" inside [...] also counts; no CRS rule has one
-IGNORECASE_FLAG = re.compile(r"\(\?[a-zA-Z]*i[a-zA-Z]*(?:-[a-zA-Z]*)?[:)]")
 
 
 class LowercaseIgnorecase(Rule):
@@ -27,8 +22,12 @@ class LowercaseIgnorecase(Rule):
     - t:lowercase with a case-sensitive regex: "@rx foo"
     - (?i) flag without t:lowercase transformation
 
-    The flag is found anywhere in the regex, including `^(?i)foo` and the
-    scoped form `(?i:foo)`.
+    The check only fires when the flag covers the whole pattern, as in
+    `^(?i)foo`, `(?si)foo` or a `(?i:...)` group spanning everything. A pattern
+    with only part of it flagged, such as `(?i:foo)|bar`, still needs
+    t:lowercase for the rest, and a rule whose lowercased value is read later
+    (MATCHED_VAR, %{tx.0} in a setvar or a chained rule) needs t:lowercase
+    itself, so neither is reported.
     """
 
     def __init__(self):
@@ -40,22 +39,13 @@ class LowercaseIgnorecase(Rule):
 
     def check(self, data):
         """check for combined transformation and ignorecase patterns"""
-        ruleid = 0
-        for d in data:
-            if d["type"].lower() == "secrule":
-                if d["operator"] == "@rx":
-                    regex = d["operator_argument"]
-                    if IGNORECASE_FLAG.search(regex):
-                        if "actions" in d:
-                            for a in d["actions"]:
-                                if a["act_name"] == "id":
-                                    ruleid = int(a["act_arg"])
-                                if a["act_name"] == "t":
-                                    # check the transform is valid
-                                    if a["act_arg"].lower() == "lowercase":
-                                        yield LintProblem(
-                                            line=a["lineno"],
-                                            end_line=a["lineno"],
-                                            desc=f'rule uses (?i) in combination with t:lowercase: \'{a["act_arg"]}\'; rule id: {ruleid}',
-                                            rule="lowercase_ignorecase",
-                                        )
+        for ruleid, lowered, coverage, reads, _ in lowercase_rx_rules(data):
+            if coverage is not Coverage.FULL or reads:
+                continue
+            for a in lowered:
+                yield LintProblem(
+                    line=a["lineno"],
+                    end_line=a["lineno"],
+                    desc=f'rule uses (?i) in combination with t:lowercase: \'{a["act_arg"]}\'; rule id: {ruleid}',
+                    rule="lowercase_ignorecase",
+                )
