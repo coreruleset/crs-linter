@@ -80,7 +80,7 @@ Here's a full example with all recommended options (run from the `coreruleset` d
 | `-o, --output` | Output format: `native` (default) or `github` |
 | `--debug` | Enable debug information output |
 | `-v, --version` | CRS version string (auto-detected if not provided) |
-| `-c, --config` | Path to a TOML config file with `approved_tags`, `filename_exclusions` and `test_exclusions`. Replaces `-t`/`-f`/`-E`; cannot be combined with them |
+| `-c, --config` | Path to a TOML config file with `approved_tags`, `filename_exclusions`, `test_exclusions` and `enable_checks`. Replaces `-t`/`-f`/`-E`; cannot be combined with them |
 | `-f, --filename-tags-exclusions` | Path to file containing filenames exempt from filename tag checks |
 | `-T, --tests` | Path to test files directory |
 | `-E, --filename-tests-exclusions` | Path to file with rule ID prefixes excluded from test coverage checks |
@@ -105,6 +105,11 @@ filename_exclusions = [
 
 test_exclusions = [
   "932",
+]
+
+# opt-in checks, off unless listed here
+enable_checks = [
+  "rx_lowercase",
 ]
 ```
 
@@ -192,6 +197,7 @@ The following rule names can be used in exemption comments:
 | `pass_nolog` | [PassNolog](#passnolog) |
 | `pl_consistency` | [PlConsistency](#plconsistency) |
 | `rule_tests` | [RuleTests](#ruletests) |
+| `rx_lowercase` | [RxLowercase](#rxlowercase) |
 | `standalonetxn` | [StandaloneTxn](#standalonetxn) |
 | `variables_usage` | [VariablesUsage](#variablesusage) |
 | `version` | [Version](#version) |
@@ -609,6 +615,15 @@ The rule should use either:
 - t:lowercase with a case-sensitive regex: "@rx foo"
 - (?i) flag without t:lowercase transformation
 
+The check only fires when the flag covers the whole pattern, as in
+`^(?i)foo`, `(?si)foo` or a `(?i:...)` group spanning everything. A pattern
+with only part of it flagged, such as `(?i:foo)|bar`, still needs
+t:lowercase for the rest, and a rule whose lowercased value is read later
+(MATCHED_VAR, %{tx.0} in a setvar or a chained rule) needs t:lowercase
+itself, so neither is reported. The same goes for a transformation after
+t:lowercase that is not known to be harmless (a decoder such as
+t:base64Decode), and for a t:lowercase cancelled by a later t:none.
+
 ## NoNegatedRequestCookies
 
 **Source:** `src/crs_linter/rules/no_negated_request_cookies.py`
@@ -810,6 +825,59 @@ To fix: Add a test case to your test suite that exercises this rule.
 
 Use the -E flag to provide a file with rule ID prefixes that should be
 excluded from this check.
+
+## RxLowercase
+
+**Source:** `src/crs_linter/rules/rx_lowercase.py`
+
+Check that @rx rules use the (?i) flag instead of t:lowercase.
+
+CRS matches case-insensitively with the (?i) regex flag (`##!+ i` in
+regex-assembly files). t:lowercase is kept for operators without a flag,
+such as @within, @streq or @contains. Unlike t:lowercase, (?i) keeps the
+original casing in MATCHED_VAR and logdata, and does not depend on the
+transformation pipeline.
+
+Example of a failing rule (t:lowercase with @rx):
+
+```apache
+SecRule ARGS "@rx foo" \
+    "id:1,\
+    phase:1,\
+    pass,\
+    t:lowercase,\  # Fails: use "@rx (?i)foo" instead
+    nolog"
+```
+
+
+Only rules where (?i) can replace t:lowercase without changing what the
+rule does are reported. These are left alone:
+- rules whose lowercased value is read later (MATCHED_VAR or %{tx.0} in a
+  setvar or a chained rule), because t:lowercase normalises that value
+  and (?i) would not (see rule 920450). Logging only (logdata) does not count
+- patterns with no letters, where t:lowercase can only matter for the value
+- rules with a transformation after t:lowercase that is not known to be
+  harmless (t:urlDecode, t:jsDecode, t:md5, ...): decoders can bring upper
+  case back, so (?i) would match more
+- a t:lowercase cancelled by a later t:none, which does nothing
+- patterns the flag parser does not understand (recursion, conditionals)
+- patterns already fully covered by (?i), which lowercase_ignorecase reports
+
+Only the transformations after the last t:none count.
+
+A pattern that is only partly flagged, such as `(?i:foo)bar`, is reported
+with a hint to put the whole pattern under (?i).
+
+Rules that still need t:lowercase for another reason are exempted with:
+
+```apache
+#crs-linter:ignore:rx_lowercase
+```
+
+
+This check is opt-in, so older CRS releases and plugins are not affected.
+Enable it in the config file passed with -c:
+    enable_checks = ["rx_lowercase"]
 
 ## StandaloneTxn
 

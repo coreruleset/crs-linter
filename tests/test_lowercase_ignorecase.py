@@ -98,7 +98,92 @@ import pytest
     phase:1,\\
     pass,\\
     t:lowercase,\\
-    nolog"''', 0, "(?i) not at start is not checked"),
+    nolog"''', 0, "(?i) in the middle of the regex leaves foo case-sensitive"),
+
+    # Invalid: (?i) after an anchor
+    ('''SecRule ARGS "@rx ^(?i)foo" \\
+    "id:13,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 1, "(?i) after ^ is redundant"),
+
+    # Invalid: scoped (?i:...) group and combined flags
+    ('''SecRule ARGS "@rx (?i:foo)|(?si)bar" \\
+    "id:14,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 1, "(?i:...) and (?si) are redundant"),
+
+    # Valid: the flag covers only part of the pattern, so t:lowercase is still needed for bar
+    ('''SecRule ARGS "@rx (?i:foo)|bar" \\
+    "id:16,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 0, "partial (?i:...) is not redundant"),
+
+    # Valid: a setvar reads the lowercased capture
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:17,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:lowercase,\\
+    setvar:'tx.x=%{tx.0}',\\
+    nolog"''', 0, "a setvar reads the lowercased capture"),
+
+    # Invalid: capture alone only feeds logdata, (?i) can replace t:lowercase
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:18,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:lowercase,\\
+    logdata:'%{tx.0}',\\
+    nolog"''', 1, "capture used only in logdata is redundant"),
+
+    # Valid: \x61 is an "a" that the later (?i) does not cover
+    ('''SecRule ARGS "@rx ^\\x61(?i)b$" \\
+    "id:19,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    nolog"''', 0, "an escaped letter before (?i) is not covered"),
+
+    # Valid: base64Decode after t:lowercase changes what is decoded
+    ('''SecRule ARGS "@rx ^(?i:foo)$" \\
+    "id:20,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:base64Decode,\\
+    nolog"''', 0, "a decoder after t:lowercase"),
+
+    # Valid: t:none cancels the t:lowercase before it
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:21,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,t:none,\\
+    nolog"''', 0, "t:none cancels t:lowercase"),
+
+    # Invalid: the name of the matched variable is not changed by t:lowercase
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:22,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    setvar:'tx.n=%{matched_var_name}',\\
+    nolog"''', 1, "%{matched_var_name} is not the lowercased value"),
+
+    # Valid: (?-i) turns case folding off
+    ('''SecRule ARGS "@rx (?-i)foo" \\
+    "id:15,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,\\
+    nolog"''', 0, "(?-i) is not an ignorecase flag"),
 ])
 def test_lowercase_ignorecase_detection(run_linter, rule, expected_count, description):
     """Test detection of redundant t:lowercase with (?i) flag."""
