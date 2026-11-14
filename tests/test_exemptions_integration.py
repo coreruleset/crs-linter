@@ -31,6 +31,23 @@ SecRule ARGS "@rx (?i)foo" \\
         # Should have no lowercase_ignorecase problems (exempted)
         assert len(lowercase_problems) == 0
 
+    def test_exemption_with_whitespace_after_octothorpe(self):
+        """Test that whitespace after the octothorpe is allowed."""
+        content = """
+# crs-linter:ignore:lowercase_ignorecase
+SecRule ARGS "@rx (?i)foo" \\
+    "id:1001,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase"
+"""
+        parsed = parse_config(content)
+        linter = Linter(parsed, "test.conf", file_content=content)
+        problems = list(linter.run_checks())
+
+        lowercase_problems = [p for p in problems if p.rule == "lowercase_ignorecase"]
+        assert len(lowercase_problems) == 0
+
     def test_exemption_suppresses_deprecated(self):
         """Test that exemption comment suppresses deprecated rule."""
         content = """
