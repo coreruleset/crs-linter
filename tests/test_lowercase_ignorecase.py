@@ -280,6 +280,26 @@ def test_multiple_lowercase_transforms_with_ignorecase(run_linter):
         "Should detect both t:lowercase transformations"
 
 
+@pytest.mark.parametrize("transforms,expected_count", [
+    ("t:none,t:urlDecode,t:none,t:lowercase", 1),
+    ("t:none,t:lowercase,t:none,t:lowercase", 1),
+    ("t:none,t:lowercase,t:none,t:urlDecode,t:none", 0),
+    ("t:lowercase,t:urlDecode,t:lowercase", 2),
+])
+def test_lowercase_ignorecase_with_several_t_none(run_linter, transforms, expected_count):
+    """Only the transformations after the last t:none count."""
+    rule = f'''SecRule ARGS "@rx (?i)foo" \\
+    "id:3002,\\
+    phase:1,\\
+    pass,\\
+    {transforms},\\
+    nolog"'''
+
+    problems = run_linter(rule, rule_type="lowercase_ignorecase")
+
+    assert len(problems) == expected_count
+
+
 def test_complex_regex_with_ignorecase_flag(run_linter):
     """Test with complex regex patterns starting with (?i)."""
     rule = '''SecRule ARGS "@rx (?i)^(GET|POST|HEAD)\\\\s+/admin" \\

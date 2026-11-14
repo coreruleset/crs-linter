@@ -38,6 +38,11 @@ class RxLowercase(Rule):
     A pattern that is only partly flagged, such as `(?i:foo)bar`, is reported
     with a hint to put the whole pattern under (?i).
 
+    A pattern with upper-case letters outside (?i), such as `FOO` or `[A-Z]+`,
+    is reported with a different hint: those letters never match lowercased
+    input, so adding (?i) makes the rule match more. A class with both cases,
+    such as `[0-9A-Z_a-z]`, does not count.
+
     Rules that still need t:lowercase for another reason are exempted with:
         #crs-linter:ignore:rx_lowercase
 
@@ -56,14 +61,18 @@ class RxLowercase(Rule):
 
     def check(self, data):
         """check for t:lowercase on @rx rules"""
-        for ruleid, lowered, coverage, reads, alters in lowercase_rx_rules(data):
+        for ruleid, lowered, coverage, reads, alters, upper in lowercase_rx_rules(data):
             if reads or alters or coverage not in (Coverage.NONE, Coverage.PARTIAL):
                 continue
-            hint = (
-                "part of the pattern is not covered by (?i), put the whole pattern under (?i)"
-                if coverage is Coverage.PARTIAL
-                else "use the (?i) flag instead"
-            )
+            if upper:
+                hint = (
+                    "upper-case letters in the pattern never match after t:lowercase, "
+                    "check the pattern before switching to (?i): it would match more"
+                )
+            elif coverage is Coverage.PARTIAL:
+                hint = "part of the pattern is not covered by (?i), put the whole pattern under (?i)"
+            else:
+                hint = "use the (?i) flag instead"
             for a in lowered:
                 yield LintProblem(
                     line=a["lineno"],

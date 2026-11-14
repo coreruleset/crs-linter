@@ -2,7 +2,7 @@
 
 import pytest
 
-from crs_linter.ignorecase import Coverage, ignorecase_coverage
+from crs_linter.ignorecase import Coverage, dead_uppercase, ignorecase_coverage
 
 
 @pytest.mark.parametrize("pattern,expected", [
@@ -41,7 +41,13 @@ from crs_linter.ignorecase import Coverage, ignorecase_coverage
     ("(?x)foo # (?i) note", Coverage.NONE),  # the flag is inside an extended-mode comment
     ("a{x}", Coverage.NONE),
     ("[^\\x00-\\x7f]", Coverage.NOLETTERS),  # hex digits in a class are not letters
-    ("[\\x{bc}\\101\\]]", Coverage.NOLETTERS),
+    ("[\\x{bc}\\101\\]]", Coverage.NONE),  # in a class \101 is always octal, "A"
+    ("[\\x{bc}\\060\\]]", Coverage.NOLETTERS),
+    ("\\60(?i)abc", Coverage.FULL),  # no group 60, so \60 is octal "0", not a backreference
+    ("\\101", Coverage.NONE),  # octal "A"
+    ("(a)\\1", Coverage.NONE),
+    ("(?i)(a)\\1", Coverage.FULL),
+    ("\\8(?i)a", Coverage.PARTIAL),  # \8 is always a backreference
     ("[^a-f]", Coverage.NONE),
     ("^[0-9]+$", Coverage.NOLETTERS),
     ("\\d+\\.\\w", Coverage.NOLETTERS),
@@ -54,3 +60,22 @@ from crs_linter.ignorecase import Coverage, ignorecase_coverage
 ])
 def test_ignorecase_coverage(pattern, expected):
     assert ignorecase_coverage(pattern) is expected
+
+
+@pytest.mark.parametrize("pattern,expected", [
+    ("FOO", True),
+    ("^[A-Z]+$", True),
+    ("[^A-Z]", True),
+    ("\\x41", True),
+    ("\\101", True),
+    ("\\QABC\\E", True),
+    ("(?i)FOO", False),
+    ("(?i:A)b", False),
+    ("foo", False),
+    ("[0-9A-Z_a-z]+", False),
+    ("[A-z]", False),
+    ("\\p{Lu}", False),
+    ("(a)\\1", False),
+])
+def test_dead_uppercase(pattern, expected):
+    assert dead_uppercase(pattern) is expected

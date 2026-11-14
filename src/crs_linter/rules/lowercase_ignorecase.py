@@ -41,7 +41,7 @@ class LowercaseIgnorecase(Rule):
 
     def check(self, data):
         """check for combined transformation and ignorecase patterns"""
-        for ruleid, lowered, coverage, reads, alters in lowercase_rx_rules(data):
+        for ruleid, lowered, coverage, reads, alters, _ in lowercase_rx_rules(data):
             if coverage is not Coverage.FULL or reads or alters:
                 continue
             for a in lowered:

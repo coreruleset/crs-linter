@@ -868,6 +868,11 @@ Only the transformations after the last t:none count.
 A pattern that is only partly flagged, such as `(?i:foo)bar`, is reported
 with a hint to put the whole pattern under (?i).
 
+A pattern with upper-case letters outside (?i), such as `FOO` or `[A-Z]+`,
+is reported with a different hint: those letters never match lowercased
+input, so adding (?i) makes the rule match more. A class with both cases,
+such as `[0-9A-Z_a-z]`, does not count.
+
 Rules that still need t:lowercase for another reason are exempted with:
 
 ```apache

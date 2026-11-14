@@ -292,9 +292,57 @@ SecRule ARGS "@rx bar" \\
     chain"
     SecRule MATCHED_VAR "@streq foo" \\
         "t:none"''', 0, "the next link reads MATCHED_VAR"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7211,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:urlDecode,t:none,t:lowercase,\\
+    nolog"''', 1, "only the transformations after the second t:none count"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7212,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:none,t:lowercase,\\
+    nolog"''', 1, "t:lowercase after a second t:none"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7213,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:urlDecode,t:none,t:lowercase,t:none,\\
+    nolog"''', 0, "a third t:none cancels t:lowercase"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7214,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:urlDecode,t:lowercase,\\
+    nolog"''', 2, "the last t:lowercase on the line folds the decoder before it"),
 ])
 def test_rx_lowercase_transformations_and_reads(run_linter, rule, expected_count, description):
     problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
 
     assert len(problems) == expected_count, \
         f"{description}: expected {expected_count} problems, got {len(problems)}"
+
+
+@pytest.mark.parametrize("pattern,hint", [
+    ("FOO", "upper-case letters in the pattern never match after t:lowercase"),
+    ("^[A-Z]+$", "upper-case letters in the pattern never match after t:lowercase"),
+    ("^[0-9A-Z_a-z]+$", "use the (?i) flag instead"),
+    ("(?i:foo)bar", "put the whole pattern under (?i)"),
+])
+def test_rx_lowercase_hint(run_linter, pattern, hint):
+    rule = f'''SecRule ARGS "@rx {pattern}" \\
+    "id:7301,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    nolog"'''
+
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
+
+    assert len(problems) == 1
+    assert hint in problems[0].desc
