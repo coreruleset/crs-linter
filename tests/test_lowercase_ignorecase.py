@@ -144,6 +144,39 @@ import pytest
     logdata:'%{tx.0}',\\
     nolog"''', 1, "capture used only in logdata is redundant"),
 
+    # Valid: \x61 is an "a" that the later (?i) does not cover
+    ('''SecRule ARGS "@rx ^\\x61(?i)b$" \\
+    "id:19,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    nolog"''', 0, "an escaped letter before (?i) is not covered"),
+
+    # Valid: base64Decode after t:lowercase changes what is decoded
+    ('''SecRule ARGS "@rx ^(?i:foo)$" \\
+    "id:20,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:base64Decode,\\
+    nolog"''', 0, "a decoder after t:lowercase"),
+
+    # Valid: t:none cancels the t:lowercase before it
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:21,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,t:none,\\
+    nolog"''', 0, "t:none cancels t:lowercase"),
+
+    # Invalid: the name of the matched variable is not changed by t:lowercase
+    ('''SecRule ARGS "@rx (?i)foo" \\
+    "id:22,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    setvar:'tx.n=%{matched_var_name}',\\
+    nolog"''', 1, "%{matched_var_name} is not the lowercased value"),
+
     # Valid: (?-i) turns case folding off
     ('''SecRule ARGS "@rx (?-i)foo" \\
     "id:15,\\

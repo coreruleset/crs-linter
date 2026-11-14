@@ -367,3 +367,21 @@ def test_cli_config_accepts_enable_checks(monkeypatch, tmp_path):
     )
 
     assert main() == 0
+
+
+def test_cli_config_rejects_enable_checks_that_are_not_opt_in(monkeypatch, tmp_path, caplog):
+    """A check that always runs is not unknown, and the error says so"""
+    config = tmp_path / "crs-linter.toml"
+    config.write_text('enable_checks = ["lowercase_ignorecase"]\n')
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["crs-linter", "-v", "4.10.0", "-r", "../examples/test1.conf", "-c", str(config), "-d", "."],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code == 1
+    assert "not opt-in" in caplog.text
+    assert "unknown" not in caplog.text

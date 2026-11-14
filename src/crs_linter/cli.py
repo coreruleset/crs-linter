@@ -273,10 +273,15 @@ def main():
         tags, filename_tags_exclusions, test_exclusion_list_from_config, enabled_checks = load_config(
             args.config
         )
-        opt_in = {r.name for r in get_registered_rules() if r.opt_in}
-        unknown = sorted(set(enabled_checks) - opt_in)
+        rules = {r.name: r for r in get_registered_rules()}
+        opt_in = {name for name, r in rules.items() if r.opt_in}
+        unknown = sorted(set(enabled_checks) - set(rules))
+        always_on = sorted(set(enabled_checks) & set(rules) - opt_in)
         if unknown:
             logger.error(f"Config file: {args.config}: unknown enable_checks {unknown}; opt-in checks are: {sorted(opt_in)}")
+            sys.exit(1)
+        if always_on:
+            logger.error(f"Config file: {args.config}: enable_checks {always_on} are not opt-in checks, they always run; opt-in checks are: {sorted(opt_in)}")
             sys.exit(1)
     else:
         tags = get_lines_from_file(args.tagslist)

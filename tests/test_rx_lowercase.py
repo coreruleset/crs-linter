@@ -207,3 +207,94 @@ SecRule ARGS "@rx bar" \\
 
     assert len(problems) == 1
     assert "7110" not in problems[0].desc
+
+
+@pytest.mark.parametrize("rule,expected_count,description", [
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7201,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,t:none,\\
+    nolog"''', 0, "t:none cancels t:lowercase"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7202,\\
+    phase:1,\\
+    pass,\\
+    t:lowercase,t:jsDecode,t:none,t:lowercase,\\
+    nolog"''', 1, "a cancelled jsDecode does not hide the report"),
+
+    ('''SecRule ARGS "@rx union" \\
+    "id:7203,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:removeWhitespace,\\
+    nolog"''', 1, "a harmless transformation after t:lowercase"),
+
+    ('''SecRule ARGS "@rx union" \\
+    "id:7204,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:sqlHexDecode,\\
+    nolog"''', 0, "sqlHexDecode can bring upper case back"),
+
+    ('''SecRule ARGS "@rx union" \\
+    "id:7205,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:md5,\\
+    nolog"''', 0, "md5 depends on the case of its input"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7206,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    setvar:'tx.n=%{matched_var_name}',\\
+    nolog"''', 1, "%{matched_var_name} is not the lowercased value"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7207,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:none,t:lowercase,\\
+    chain"
+    SecRule ARGS:b "@streq %{tx.1}" \\
+        "t:none"''', 0, "a later operator argument reads the capture"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7208,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    chain"
+    SecRule TX:1 "@streq x" \\
+        "t:none"''', 1, "TX:1 without capture does not read the lowercased value"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7209,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:none,t:lowercase,\\
+    chain"
+    SecRule ARGS:b "@rx (bar)" \\
+        "capture,t:none,chain"
+    SecRule TX:1 "@streq x" \\
+        "t:none"''', 1, "TX:1 after another capture is not this rule's"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7210,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,\\
+    chain"
+    SecRule MATCHED_VAR "@streq foo" \\
+        "t:none"''', 0, "the next link reads MATCHED_VAR"),
+])
+def test_rx_lowercase_transformations_and_reads(run_linter, rule, expected_count, description):
+    problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
+
+    assert len(problems) == expected_count, \
+        f"{description}: expected {expected_count} problems, got {len(problems)}"

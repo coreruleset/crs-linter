@@ -27,7 +27,9 @@ class LowercaseIgnorecase(Rule):
     with only part of it flagged, such as `(?i:foo)|bar`, still needs
     t:lowercase for the rest, and a rule whose lowercased value is read later
     (MATCHED_VAR, %{tx.0} in a setvar or a chained rule) needs t:lowercase
-    itself, so neither is reported.
+    itself, so neither is reported. The same goes for a transformation after
+    t:lowercase that is not known to be harmless (a decoder such as
+    t:base64Decode), and for a t:lowercase cancelled by a later t:none.
     """
 
     def __init__(self):
@@ -39,8 +41,8 @@ class LowercaseIgnorecase(Rule):
 
     def check(self, data):
         """check for combined transformation and ignorecase patterns"""
-        for ruleid, lowered, coverage, reads, _ in lowercase_rx_rules(data):
-            if coverage is not Coverage.FULL or reads:
+        for ruleid, lowered, coverage, reads, alters in lowercase_rx_rules(data):
+            if coverage is not Coverage.FULL or reads or alters:
                 continue
             for a in lowered:
                 yield LintProblem(

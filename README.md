@@ -620,7 +620,9 @@ The check only fires when the flag covers the whole pattern, as in
 with only part of it flagged, such as `(?i:foo)|bar`, still needs
 t:lowercase for the rest, and a rule whose lowercased value is read later
 (MATCHED_VAR, %{tx.0} in a setvar or a chained rule) needs t:lowercase
-itself, so neither is reported.
+itself, so neither is reported. The same goes for a transformation after
+t:lowercase that is not known to be harmless (a decoder such as
+t:base64Decode), and for a t:lowercase cancelled by a later t:none.
 
 ## NoNegatedRequestCookies
 
@@ -854,10 +856,14 @@ rule does are reported. These are left alone:
   setvar or a chained rule), because t:lowercase normalises that value
   and (?i) would not (see rule 920450). Logging only (logdata) does not count
 - patterns with no letters, where t:lowercase can only matter for the value
-- rules with a decoding transformation after t:lowercase (t:urlDecode,
-  t:jsDecode, ...), which can bring upper case back, so (?i) would match more
+- rules with a transformation after t:lowercase that is not known to be
+  harmless (t:urlDecode, t:jsDecode, t:md5, ...): decoders can bring upper
+  case back, so (?i) would match more
+- a t:lowercase cancelled by a later t:none, which does nothing
 - patterns the flag parser does not understand (recursion, conditionals)
 - patterns already fully covered by (?i), which lowercase_ignorecase reports
+
+Only the transformations after the last t:none count.
 
 A pattern that is only partly flagged, such as `(?i:foo)bar`, is reported
 with a hint to put the whole pattern under (?i).

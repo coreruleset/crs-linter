@@ -19,7 +19,9 @@ class Coverage(enum.Enum):
 
 
 _QUANTIFIER = re.compile(r"\{\d*(?:,\d*)?\}")
-_GROUP_FLAGS = re.compile(r"\(\?\^?([a-zA-Z]*)(?:-([a-zA-Z]*))?([:)])")
+# (?i), (?i-s:...), (?^i): a leading ^ resets the flags before applying the new ones
+_GROUP_FLAGS = re.compile(r"\(\?(\^?)([a-zA-Z]*)(?:-([a-zA-Z]*))?([:)])")
+_UNSUPPORTED_GROUP = re.compile(r"\(\?[+-]?\d")
 # non-capturing and look-around prefixes that open a group without flags
 _PLAIN_GROUP_PREFIXES = ("(?:", "(?=", "(?!", "(?<=", "(?<!", "(?>", "(?|")
 _NAMED_GROUP = re.compile(r"\(\?(?:P?<[A-Za-z_]\w*>|'[A-Za-z_]\w*')")
@@ -27,9 +29,50 @@ _NAMED_GROUP = re.compile(r"\(\?(?:P?<[A-Za-z_]\w*>|'[A-Za-z_]\w*')")
 _BACKREF = re.compile(r"\\(?:k<\w+>|k\{\w+\}|k'\w+'|g\{-?\w+\}|g-?\d+|\d+)")
 # \p{Lu}, \pL: property classes are case dependent
 _PROPERTY = re.compile(r"\\[pP](?:\{\^?\w+\}|\w)")
-# escapes inside a character class that are not letters: \x7f, \x{bc}, \101, \n, \]
-_CLASS_ESCAPE = re.compile(r"\\(?:x\{[0-9a-fA-F]+\}|x[0-9a-fA-F]{0,2}|[0-7]{1,3}|c.|.)", re.DOTALL)
-_CLASS_LETTER = re.compile(r"[A-Za-z]|[^\x00-\x7f]")
+# \x41, \x{41}, \012: the character they stand for decides whether they are a letter
+_HEX_ESCAPE = re.compile(r"\\x(?:\{([0-9a-fA-F]+)\}|([0-9a-fA-F]{0,2}))")
+_OCTAL_ESCAPE = re.compile(r"\\0([0-7]{0,2})")
+_POSIX_CLASS = re.compile(r"\[:\^?\w+:\]")
+_LETTER = re.compile(r"[A-Za-z]|[^\x00-\x7f]")
+
+
+def _escape(pattern: str, i: int) -> Tuple[int, bool]:
+    """Return (end, is_letter) for the escape sequence that starts at `i`.
+
+    Only ASCII letters count for numeric escapes: whether a byte above 0x7f
+    has a case depends on the locale and on the UTF mode, which a linter
+    cannot know.
+    """
+    m = _PROPERTY.match(pattern, i)
+    if m:
+        return m.end(), True
+    m = _HEX_ESCAPE.match(pattern, i)
+    if m:
+        value = int(m.group(1) or m.group(2) or "0", 16)
+        return m.end(), value < 0x80 and chr(value).isalpha()
+    m = _OCTAL_ESCAPE.match(pattern, i)
+    if m:
+        value = int(m.group(1) or "0", 8)
+        return m.end(), value < 0x80 and chr(value).isalpha()
+    if pattern.startswith("\\c", i):
+        return i + 3, False
+    return i + 2, False
+
+
+def _class_has_letter(body: str) -> bool:
+    """True when the character class body has a letter, a property or a posix class."""
+    i, n = 0, len(body)
+    while i < n:
+        if body[i] == "\\" and i + 1 < n:
+            i, is_letter = _escape(body, i)
+        elif body[i] == "[" and _POSIX_CLASS.match(body, i):
+            return True
+        else:
+            is_letter = bool(_LETTER.match(body[i]))
+            i += 1
+        if is_letter:
+            return True
+    return False
 
 
 def _class_end(pattern: str, i: int) -> int:
@@ -44,8 +87,8 @@ def _class_end(pattern: str, i: int) -> int:
         c = pattern[i]
         if c == "\\":
             i += 2
-        elif c == "[" and pattern.startswith("[:", i) and ":]" in pattern[i:]:
-            i = pattern.index(":]", i) + 2
+        elif c == "[" and _POSIX_CLASS.match(pattern, i):
+            i = _POSIX_CLASS.match(pattern, i).end()
         elif c == "]":
             return i + 1
         else:
@@ -90,14 +133,15 @@ def ignorecase_coverage(pattern: str) -> Coverage:
                         letter()
                 i = n if end == -1 else end + 2
                 continue
-            m = _BACKREF.match(pattern, i) or _PROPERTY.match(pattern, i)
-            if m:
+            m = _BACKREF.match(pattern, i)
+            if m and not _OCTAL_ESCAPE.match(pattern, i):
                 letter()
                 i = m.end()
                 continue
-            # an escaped letter is a class (\d, \w), an anchor (\b) or a
-            # control character (\n): none of them depends on case folding
-            i += 2
+            # \d, \w and \b do not depend on case folding, \x61 and \p{Lu} do
+            i, is_letter = _escape(pattern, i)
+            if is_letter:
+                letter()
             continue
 
         if c == "[":
@@ -105,7 +149,7 @@ def ignorecase_coverage(pattern: str) -> Coverage:
             if end == -1:
                 return Coverage.UNKNOWN
             body = pattern[i + 1:end - 1]
-            if _PROPERTY.search(body) or re.search(r"\[:\w+:\]", body) or _CLASS_LETTER.search(_CLASS_ESCAPE.sub("", body)):
+            if _class_has_letter(body):
                 letter()
             i = end
             continue
@@ -117,7 +161,7 @@ def ignorecase_coverage(pattern: str) -> Coverage:
                     return Coverage.UNKNOWN
                 i = end + 1
                 continue
-            if pattern.startswith(("(*", "(?R", "(?&", "(?P>", "(?P=", "(?("), i) or re.match(r"\(\?[+-]?\d", pattern[i:]):
+            if pattern.startswith(("(*", "(?R", "(?&", "(?P>", "(?P=", "(?("), i) or _UNSUPPORTED_GROUP.match(pattern, i):
                 return Coverage.UNKNOWN
             plain = next((p for p in _PLAIN_GROUP_PREFIXES if pattern.startswith(p, i)), None)
             named = _NAMED_GROUP.match(pattern, i)
@@ -128,9 +172,11 @@ def ignorecase_coverage(pattern: str) -> Coverage:
             m = _GROUP_FLAGS.match(pattern, i)
             if not m:
                 return Coverage.UNKNOWN
-            on, off, end = m.group(1), m.group(2) or "", m.group(3)
+            reset, on, off, end = m.group(1), m.group(2), m.group(3) or "", m.group(4)
             if end == ":":
                 stack.append((ignorecase, extended))
+            if reset:
+                ignorecase = extended = False
             ignorecase = (ignorecase or "i" in on) and "i" not in off
             extended = (extended or "x" in on) and "x" not in off
             i = m.end()
@@ -161,38 +207,74 @@ def ignorecase_coverage(pattern: str) -> Coverage:
     return Coverage.NONE if not covered else Coverage.PARTIAL
 
 
-# transformations that can bring upper case back after t:lowercase
-_DECODERS = frozenset((
-    "urldecode", "urldecodeuni", "htmlentitydecode", "base64decode",
-    "base64decodeext", "hexdecode", "jsdecode", "cssdecode", "utf8tounicode",
+# Transformations that are harmless after t:lowercase: they only remove or
+# normalise characters, so (?i) on the pattern gives the same match. Anything
+# else (decoders that bring upper case back, hexEncode, md5, uppercase...) makes
+# (?i) a different rule.
+_SAFE_AFTER_LOWERCASE = frozenset((
+    "lowercase", "cmdline", "compresswhitespace", "length", "normalisepath",
+    "normalisepathwin", "normalizepath", "normalizepathwin", "removecomments",
+    "removecommentschar", "removenulls", "removewhitespace", "replacecomments",
+    "replacenulls", "trim", "trimleft", "trimright",
 ))
 
-
-# a later reference to the matched or captured value: %{tx.0}, %{tx.1}, %{matched_var}
-_VALUE_REF = re.compile(r"%\{(?:tx\.\d|matched_var)", re.IGNORECASE)
+# %{tx.0}, %{tx.1} and %{matched_var}, %{matched_vars}; not %{matched_var_name}
+_TX_REF = re.compile(r"%\{tx\.\d+\}", re.IGNORECASE)
+_MATCHED_REF = re.compile(r"%\{matched_vars?\}", re.IGNORECASE)
 _LOG_ACTIONS = frozenset(("logdata", "msg", "tag"))
 
 
-def _reads_value(links) -> bool:
-    """True when a rule link reads the matched or captured value of an earlier one."""
-    for link in links:
-        for v in link.get("variables", ()):
-            name = v.get("variable", "").upper()
-            if name.startswith("MATCHED_VAR") or (name == "TX" and str(v.get("variable_part", "")).isdigit()):
-                return True
-        for a in link.get("actions", ()):
-            if a["act_name"] not in _LOG_ACTIONS and _VALUE_REF.search(str(a.get("act_arg") or "") + str(a.get("act_arg_val") or "")):
-                return True
+def _reads(link, tx: bool, matched: bool) -> bool:
+    """True when the link reads TX:N (if `tx`) or MATCHED_VAR(S) (if `matched`).
+
+    Reads in logdata and msg do not count: they only change what is logged.
+    """
+    for v in link.get("variables", ()):
+        name = v.get("variable", "").upper()
+        if matched and name in ("MATCHED_VAR", "MATCHED_VARS"):
+            return True
+        if tx and name == "TX" and str(v.get("variable_part", "")).isdigit():
+            return True
+    texts = [link.get("operator_argument") or ""]
+    texts += [
+        str(a.get("act_arg") or "") + str(a.get("act_arg_val") or "")
+        for a in link.get("actions", ())
+        if a["act_name"] not in _LOG_ACTIONS
+    ]
+    return any((tx and _TX_REF.search(t)) or (matched and _MATCHED_REF.search(t)) for t in texts)
+
+
+def _reads_value(chain, n: int) -> bool:
+    """True when something reads the value that link `n` of `chain` lowercased.
+
+    - the link's own actions (setvar:...=%{tx.0}, %{matched_var}), where
+      %{tx.N} only holds something if the link captures
+    - MATCHED_VAR(S) in the next link, which holds this link's match; later
+      links see the match of the link before them
+    - TX:N in any later link, until another link captures and overwrites it
+    """
+    link = chain[n]
+    captures = any(a["act_name"] == "capture" for a in link["actions"])
+    if _reads({"actions": link["actions"]}, tx=captures, matched=True):
+        return True
+    for k in range(n + 1, len(chain)):
+        if _reads(chain[k], tx=captures, matched=(k == n + 1)):
+            return True
+        if any(a["act_name"] == "capture" for a in chain[k]["actions"]):
+            captures = False
     return False
 
 
 def lowercase_rx_rules(data):
-    """Yield (rule id, lowercase actions, coverage, reads value, decodes after) for each
-    @rx link with t:lowercase. An empty operator is an implicit @rx.
+    """Yield (rule id, lowercase actions, coverage, reads value, alters after) for each
+    @rx link with an effective t:lowercase. An empty operator is an implicit @rx.
 
     "reads value" means a later link or action reads the lowercased value
     (MATCHED_VAR, %{tx.0}...), so t:lowercase does more than make the match
-    case-insensitive. Logging only (logdata, msg) does not count.
+    case-insensitive. "alters after" means a transformation after t:lowercase
+    changes the value beyond removing characters, so (?i) is not equivalent.
+    Only the transformations after the last t:none count, because t:none
+    cancels the ones before it.
     """
     links = []
     chain = []
@@ -211,12 +293,13 @@ def lowercase_rx_rules(data):
         for n, d in enumerate(chain):
             if d["operator"].lower() not in ("", "@rx"):
                 continue
-            actions = d["actions"]
-            lowered = [a for a in actions if a["act_name"] == "t" and a["act_arg"].lower() == "lowercase"]
+            transforms = [a for a in d["actions"] if a["act_name"] == "t"]
+            for k, a in enumerate(transforms):
+                if a["act_arg"].lower() == "none":
+                    transforms = transforms[k + 1:]
+            lowered = [a for a in transforms if a["act_arg"].lower() == "lowercase"]
             if not lowered:
                 continue
-            names = [a["act_arg"].lower() for a in actions if a["act_name"] == "t"]
-            decodes = any(t in _DECODERS for t in names[names.index("lowercase") + 1:])
-            # the link's own actions and every later link
-            reads = _reads_value([{"actions": actions}] + chain[n + 1:])
-            yield ruleid, lowered, ignorecase_coverage(d["operator_argument"]), reads, decodes
+            after = [a["act_arg"].lower() for a in transforms[transforms.index(lowered[-1]) + 1:]]
+            alters = any(t not in _SAFE_AFTER_LOWERCASE for t in after)
+            yield ruleid, lowered, ignorecase_coverage(d["operator_argument"]), _reads_value(chain, n), alters

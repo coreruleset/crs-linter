@@ -23,6 +23,19 @@ from crs_linter.ignorecase import Coverage, ignorecase_coverage
     ("[a-z](?i)x", Coverage.PARTIAL),
     ("(?<n>a)(?i)b", Coverage.PARTIAL),
     ("foo", Coverage.NONE),
+    ("^\\x61(?i)b$", Coverage.PARTIAL),  # \x61 is "a": it is not covered by a later (?i)
+    ("(?i)\\x61b", Coverage.FULL),
+    ("\\x41", Coverage.NONE),
+    ("\\x{41}", Coverage.NONE),
+    ("\\x5c(?i)foo", Coverage.FULL),  # \x5c is a backslash, its "c" is not an uncovered letter
+    ("\\x5c(?i)", Coverage.NOLETTERS),  # \x5c is a backslash, its "c" is not a letter
+    ("\\xc0\\x80", Coverage.NOLETTERS),
+    ("\\0101", Coverage.NOLETTERS),
+    ("[\\x41]", Coverage.NONE),
+    ("(?i)a(?^)b", Coverage.PARTIAL),  # (?^) turns the flags off again
+    ("(?i)a(?^i)b", Coverage.FULL),
+    ("(?i)[[:,]x(?-i)BAR:]]", Coverage.PARTIAL),  # [: here does not start a posix class
+    ("(?i)[[:alpha:]]", Coverage.FULL),
     ("(?-i)foo", Coverage.NONE),
     ("foo\\\\(?i)", Coverage.NONE),  # an escaped backslash, then a real flag with nothing after it
     ("(?x)foo # (?i) note", Coverage.NONE),  # the flag is inside an extended-mode comment

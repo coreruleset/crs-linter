@@ -26,10 +26,14 @@ class RxLowercase(Rule):
       setvar or a chained rule), because t:lowercase normalises that value
       and (?i) would not (see rule 920450). Logging only (logdata) does not count
     - patterns with no letters, where t:lowercase can only matter for the value
-    - rules with a decoding transformation after t:lowercase (t:urlDecode,
-      t:jsDecode, ...), which can bring upper case back, so (?i) would match more
+    - rules with a transformation after t:lowercase that is not known to be
+      harmless (t:urlDecode, t:jsDecode, t:md5, ...): decoders can bring upper
+      case back, so (?i) would match more
+    - a t:lowercase cancelled by a later t:none, which does nothing
     - patterns the flag parser does not understand (recursion, conditionals)
     - patterns already fully covered by (?i), which lowercase_ignorecase reports
+
+    Only the transformations after the last t:none count.
 
     A pattern that is only partly flagged, such as `(?i:foo)bar`, is reported
     with a hint to put the whole pattern under (?i).
@@ -52,8 +56,8 @@ class RxLowercase(Rule):
 
     def check(self, data):
         """check for t:lowercase on @rx rules"""
-        for ruleid, lowered, coverage, reads, decodes in lowercase_rx_rules(data):
-            if reads or decodes or coverage not in (Coverage.NONE, Coverage.PARTIAL):
+        for ruleid, lowered, coverage, reads, alters in lowercase_rx_rules(data):
+            if reads or alters or coverage not in (Coverage.NONE, Coverage.PARTIAL):
                 continue
             hint = (
                 "part of the pattern is not covered by (?i), put the whole pattern under (?i)"
