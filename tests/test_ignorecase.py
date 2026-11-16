@@ -35,7 +35,14 @@ from crs_linter.ignorecase import Coverage, dead_uppercase, ignorecase_coverage
     ("(?i)a(?^)b", Coverage.PARTIAL),  # (?^) turns the flags off again
     ("(?i)a(?^i)b", Coverage.FULL),
     ("(?i)[[:,]x(?-i)BAR:]]", Coverage.PARTIAL),  # [: here does not start a posix class
-    ("(?i)[[:alpha:]]", Coverage.FULL),
+    ("(?i)[[:alpha:]]", Coverage.NOLETTERS),  # holds both cases of every letter
+    ("[[:upper:]](?i)a", Coverage.PARTIAL),
+    ("[A-Za-z](?i)foo", Coverage.FULL),  # matches the same with or without (?i)
+    ("^[\\Q\\a\\E](?i)b$", Coverage.PARTIAL),  # \Q...\E in a class quotes "\" and "a"
+    ("^[\\Q]\\E](?i)b$", Coverage.FULL),  # a quoted ] does not end the class
+    ("^[\\x40-\\x60](?i)a$", Coverage.PARTIAL),  # the range holds A-Z
+    ("[!-~](?i)a", Coverage.FULL),  # the range holds both cases of every letter
+    ("[0-\\x5a](?i)a", Coverage.PARTIAL),
     ("(?-i)foo", Coverage.NONE),
     ("foo\\\\(?i)", Coverage.NONE),  # an escaped backslash, then a real flag with nothing after it
     ("(?x)foo # (?i) note", Coverage.NONE),  # the flag is inside an extended-mode comment
@@ -76,6 +83,12 @@ def test_ignorecase_coverage(pattern, expected):
     ("[A-z]", False),
     ("\\p{Lu}", False),
     ("(a)\\1", False),
+    ("^[Ab]$", True),  # (?i) would let "a" in
+    ("^[^A]+$", True),  # (?i) would keep "a" out
+    ("[\\x40-\\x60]", True),
+    ("[[:upper:]]", True),
+    ("[[:alpha:]]", False),
+    ("[Aa]", False),
 ])
 def test_dead_uppercase(pattern, expected):
     assert dead_uppercase(pattern) is expected

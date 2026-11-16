@@ -285,6 +285,8 @@ def test_multiple_lowercase_transforms_with_ignorecase(run_linter):
     ("t:none,t:lowercase,t:none,t:lowercase", 1),
     ("t:none,t:lowercase,t:none,t:urlDecode,t:none", 0),
     ("t:lowercase,t:urlDecode,t:lowercase", 2),
+    ("t:lowercase,t:hexEncode,t:lowercase", 0),
+    ("t:lowercase,t:base64Decode,t:lowercase", 0),
 ])
 def test_lowercase_ignorecase_with_several_t_none(run_linter, transforms, expected_count):
     """Only the transformations after the last t:none count."""

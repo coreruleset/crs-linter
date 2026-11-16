@@ -253,7 +253,7 @@ SecRule ARGS "@rx bar" \\
     setvar:'tx.n=%{matched_var_name}',\\
     nolog"''', 1, "%{matched_var_name} is not the lowercased value"),
 
-    ('''SecRule ARGS "@rx foo" \\
+    ('''SecRule ARGS "@rx (foo)" \\
     "id:7207,\\
     phase:1,\\
     pass,\\
@@ -320,6 +320,13 @@ SecRule ARGS "@rx bar" \\
     pass,\\
     t:none,t:lowercase,t:urlDecode,t:lowercase,\\
     nolog"''', 2, "the last t:lowercase on the line folds the decoder before it"),
+
+    ('''SecRule ARGS "@rx ^666f6f$" \\
+    "id:7215,\\
+    phase:1,\\
+    pass,\\
+    t:none,t:lowercase,t:hexEncode,t:lowercase,\\
+    nolog"''', 0, "hexEncode between two t:lowercase depends on the case of its input"),
 ])
 def test_rx_lowercase_transformations_and_reads(run_linter, rule, expected_count, description):
     problems = run_linter(rule, rule_type="rx_lowercase", enabled_checks=["rx_lowercase"])
@@ -331,7 +338,9 @@ def test_rx_lowercase_transformations_and_reads(run_linter, rule, expected_count
 @pytest.mark.parametrize("pattern,hint", [
     ("FOO", "upper-case letters in the pattern never match after t:lowercase"),
     ("^[A-Z]+$", "upper-case letters in the pattern never match after t:lowercase"),
-    ("^[0-9A-Z_a-z]+$", "use the (?i) flag instead"),
+    ("^[0-9A-Z_a-z]+x$", "use the (?i) flag instead"),
+    ("^[Ab]$", "upper-case letters in the pattern never match after t:lowercase"),
+    ("^[^A]+$", "upper-case letters in the pattern never match after t:lowercase"),
     ("(?i:foo)bar", "put the whole pattern under (?i)"),
 ])
 def test_rx_lowercase_hint(run_linter, pattern, hint):

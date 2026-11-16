@@ -37,67 +37,124 @@ _HEX_ESCAPE = re.compile(r"\\x(?:\{([0-9a-fA-F]+)\}|([0-9a-fA-F]{0,2}))")
 _OCTAL_ESCAPE = re.compile(r"\\0([0-7]{0,2})")
 # inside a character class \101 is always octal
 _CLASS_OCTAL_ESCAPE = re.compile(r"\\([1-7][0-7]{0,2})")
-_POSIX_CLASS = re.compile(r"\[:\^?\w+:\]")
-_LETTER = re.compile(r"[A-Za-z]|[^\x00-\x7f]")
+_POSIX_CLASS = re.compile(r"\[:(\^?)(\w+):\]")
+# \n, \t... and, inside a class, \b (backspace)
+_SIMPLE_ESCAPES = {"a": 7, "e": 27, "f": 12, "n": 10, "r": 13, "t": 9}
 
-# what a single character is, as far as case folding goes
-LOWER, UPPER, OTHER_LETTER = "lower", "upper", "letter"
+_UPPER = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+_LOWER = frozenset("abcdefghijklmnopqrstuvwxyz")
+_POSIX_LETTERS = {
+    "upper": (_UPPER, frozenset()),
+    "lower": (frozenset(), _LOWER),
+    "alpha": (_UPPER, _LOWER),
+    "alnum": (_UPPER, _LOWER),
+    "word": (_UPPER, _LOWER),
+    "xdigit": (frozenset("ABCDEF"), frozenset("abcdef")),
+}
 
 
-def _kind(ch: str) -> Optional[str]:
-    """Return UPPER or LOWER for an ASCII letter, OTHER_LETTER for anything
-    else case folding may affect, and None for the rest."""
-    if "A" <= ch <= "Z":
-        return UPPER
-    if "a" <= ch <= "z":
-        return LOWER
-    return OTHER_LETTER if _LETTER.match(ch) else None
+def _escape(pattern: str, i: int, in_class: bool = False) -> Tuple[int, Optional[int], bool]:
+    """Return (end, code point, is property) for the escape sequence at `i`.
+
+    The code point is None for escapes that do not stand for one character,
+    such as \\d or \\w, whose meaning does not depend on case folding.
+    """
+    m = _PROPERTY.match(pattern, i)
+    if m:
+        return m.end(), None, True
+    m = _HEX_ESCAPE.match(pattern, i)
+    if m:
+        return m.end(), int(m.group(1) or m.group(2) or "0", 16), False
+    m = _OCTAL_ESCAPE.match(pattern, i)
+    if m:
+        return m.end(), int(m.group(1) or "0", 8), False
+    m = _CLASS_OCTAL_ESCAPE.match(pattern, i) if in_class else None
+    if m:
+        return m.end(), int(m.group(1), 8), False
+    if pattern.startswith("\\c", i):
+        return i + 3, None, False
+    ch = pattern[i + 1]
+    if ch in _SIMPLE_ESCAPES:
+        return i + 2, _SIMPLE_ESCAPES[ch], False
+    if in_class and ch == "b":
+        return i + 2, 8, False
+    return i + 2, (None if ch.isalnum() else ord(ch)), False
 
 
-def _code_kind(value: int) -> Optional[str]:
-    """Kind of the character a numeric escape stands for.
+def _ascii_letter(value: Optional[int]) -> Optional[str]:
+    """The ASCII letter a numeric escape stands for, or None.
 
     Only ASCII letters count: whether a byte above 0x7f has a case depends on
     the locale and on the UTF mode, which a linter cannot know.
     """
-    return _kind(chr(value)) if value < 0x80 and chr(value).isalpha() else None
+    if value is not None and value < 0x80 and chr(value).isalpha():
+        return chr(value)
+    return None
 
 
-def _escape(pattern: str, i: int, in_class: bool = False) -> Tuple[int, Optional[str]]:
-    """Return (end, kind) for the escape sequence that starts at `i`."""
-    m = _PROPERTY.match(pattern, i)
-    if m:
-        return m.end(), OTHER_LETTER
-    m = _HEX_ESCAPE.match(pattern, i)
-    if m:
-        return m.end(), _code_kind(int(m.group(1) or m.group(2) or "0", 16))
-    m = _OCTAL_ESCAPE.match(pattern, i)
-    if m:
-        return m.end(), _code_kind(int(m.group(1) or "0", 8))
-    m = _CLASS_OCTAL_ESCAPE.match(pattern, i) if in_class else None
-    if m:
-        return m.end(), _code_kind(int(m.group(1), 8))
-    if pattern.startswith("\\c", i):
-        return i + 3, None
-    return i + 2, None
+def _class_letters(body: str) -> Tuple[Set[str], Set[str], bool]:
+    """Return (upper-case letters, lower-case letters, other letters) of a
+    character class body, without its leading ^.
 
-
-def _class_kinds(body: str) -> Set[str]:
-    """Kinds of the letters in a character class body. A property or a posix
-    class counts as OTHER_LETTER."""
-    kinds: Set[str] = set()
+    Ranges are expanded, so `[\\x40-\\x60]` holds A-Z. "other letters" is set
+    for non-ASCII characters, properties and posix classes whose case
+    behaviour is not modelled.
+    """
+    upper: Set[str] = set()
+    lower: Set[str] = set()
+    other = False
+    # each item is a code point, a "-" that may form a range, or None for a set
+    items: List[Tuple[Optional[int], bool]] = []
     i, n = 0, len(body)
     while i < n:
-        if body[i] == "\\" and i + 1 < n:
-            i, kind = _escape(body, i, in_class=True)
-        elif body[i] == "[" and _POSIX_CLASS.match(body, i):
-            i, kind = _POSIX_CLASS.match(body, i).end(), OTHER_LETTER
+        c = body[i]
+        if body.startswith("\\Q", i):
+            end = body.find("\\E", i + 2)
+            quoted = body[i + 2:] if end == -1 else body[i + 2:end]
+            items.extend((ord(q), False) for q in quoted)
+            i = n if end == -1 else end + 2
+        elif body.startswith("\\E", i):
+            i += 2
+        elif c == "\\" and i + 1 < n:
+            i, value, prop = _escape(body, i, in_class=True)
+            other = other or prop
+            items.append((value, False))
+        elif c == "[" and _POSIX_CLASS.match(body, i):
+            m = _POSIX_CLASS.match(body, i)
+            letters = _POSIX_LETTERS.get(m.group(2).lower())
+            if letters and not m.group(1):
+                upper |= letters[0]
+                lower |= letters[1]
+            elif letters:
+                other = True
+            items.append((None, False))
+            i = m.end()
         else:
-            kind = _kind(body[i])
+            if ord(c) > 0x7f:
+                other = True
+            items.append((ord(c), c == "-"))
             i += 1
-        if kind:
-            kinds.add(kind)
-    return kinds
+
+    k = 0
+    while k < len(items):
+        value, _ = items[k]
+        if (
+            value is not None and k + 2 < len(items)
+            and items[k + 1][1] and items[k + 2][0] is not None
+        ):
+            first, last = value, items[k + 2][0]
+            k += 3
+        else:
+            first = last = value
+            k += 1
+        if first is None:
+            continue
+        for cp in range(max(first, 0x41), min(last, 0x7a) + 1):
+            if chr(cp) in _UPPER:
+                upper.add(chr(cp))
+            elif chr(cp) in _LOWER:
+                lower.add(chr(cp))
+    return upper, lower, other
 
 
 def _class_end(pattern: str, i: int) -> int:
@@ -110,7 +167,12 @@ def _class_end(pattern: str, i: int) -> int:
         i += 1
     while i < n:
         c = pattern[i]
-        if c == "\\":
+        if pattern.startswith("\\Q", i):
+            end = pattern.find("\\E", i + 2)
+            if end == -1:
+                return -1
+            i = end + 2
+        elif c == "\\":
             i += 2
         elif c == "[" and _POSIX_CLASS.match(pattern, i):
             i = _POSIX_CLASS.match(pattern, i).end()
@@ -142,14 +204,15 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
     stack: List[Tuple[bool, bool]] = []
     i, n = 0, len(pattern)
 
-    def letter(kinds=(OTHER_LETTER,)):
+    def letter(dead: bool = False):
+        """Count a letter atom; `dead` when, without (?i), it holds an
+        upper-case letter whose lower-case form it does not also hold."""
         nonlocal covered, uncovered, upper
         if ignorecase:
             covered += 1
         else:
             uncovered += 1
-            if UPPER in kinds and LOWER not in kinds:
-                upper = True
+            upper = upper or dead
 
     while i < n:
         c = pattern[i]
@@ -171,7 +234,7 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
                 body = pattern[i + 2:] if end == -1 else pattern[i + 2:end]
                 for ch in body:
                     if ch.isalpha():
-                        letter((_kind(ch),))
+                        letter(ch in _UPPER)
                 i = n if end == -1 else end + 2
                 continue
             m = _BACKREF.match(pattern, i)
@@ -189,15 +252,16 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
                     i = m.end()
                 else:
                     octal = _OCTAL_DIGITS.match(digits).group()
-                    kind = _code_kind(int(octal, 8))
-                    if kind:
-                        letter((kind,))
+                    ch = _ascii_letter(int(octal, 8))
+                    if ch:
+                        letter(ch in _UPPER)
                     i += 1 + len(octal)
                 continue
             # \d, \w and \b do not depend on case folding, \x61 and \p{Lu} do
-            i, kind = _escape(pattern, i)
-            if kind:
-                letter((kind,))
+            i, value, prop = _escape(pattern, i)
+            ch = _ascii_letter(value)
+            if prop or ch:
+                letter(ch is not None and ch in _UPPER)
             continue
 
         if c == "[":
@@ -205,9 +269,16 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
             if end == -1:
                 return Coverage.UNKNOWN, False
             body = pattern[i + 1:end - 1]
-            kinds = _class_kinds(body)
-            if kinds:
-                letter(kinds)
+            if body.startswith("^"):
+                body = body[1:]
+            # [Ab] and [^A] are dead in part: t:lowercase input never has "A",
+            # but (?i) would also let "a" in, so every upper-case letter needs
+            # its lower-case form in the class
+            # a class that holds both forms of each of its letters, such as
+            # [0-9A-Z_a-z], matches the same with or without (?i)
+            upper_letters, lower_letters, other = _class_letters(body)
+            if other or {u.lower() for u in upper_letters} != lower_letters:
+                letter(any(u.lower() not in lower_letters for u in upper_letters))
             i = end
             continue
 
@@ -254,7 +325,7 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
             continue
 
         if c.isalpha():
-            letter((_kind(c),))
+            letter(c in _UPPER)
         i += 1
 
     if stack:
@@ -276,6 +347,12 @@ _SAFE_AFTER_LOWERCASE = frozenset((
     "removecommentschar", "removenulls", "removewhitespace", "replacecomments",
     "replacenulls", "trim", "trimleft", "trimright",
 ))
+
+# Transformations that may sit between two t:lowercase. Dropping the first
+# t:lowercase changes their input, so their output must not depend on the case
+# of that input once the last t:lowercase folds it: urlDecode reads %4A and
+# %4a alike. hexEncode, md5, base64Decode and the like do not qualify.
+_SAFE_BETWEEN_LOWERCASE = _SAFE_AFTER_LOWERCASE | {"urldecode"}
 
 # %{tx.0}, %{tx.1} and %{matched_var}, %{matched_vars}; not %{matched_var_name}
 _TX_REF = re.compile(r"%\{tx\.\d+\}", re.IGNORECASE)
@@ -332,7 +409,8 @@ def lowercase_rx_rules(data):
     "reads value" means a later link or action reads the lowercased value
     (MATCHED_VAR, %{tx.0}...), so t:lowercase does more than make the match
     case-insensitive. "alters after" means a transformation after t:lowercase
-    changes the value beyond removing characters, so (?i) is not equivalent.
+    changes the value beyond removing characters, or one between two
+    t:lowercase depends on the case of its input, so (?i) is not equivalent.
     Only the transformations after the last t:none count, because t:none
     cancels the ones before it. "dead upper case" is what dead_uppercase() says
     about the pattern.
@@ -362,7 +440,11 @@ def lowercase_rx_rules(data):
             if not positions:
                 continue
             lowered = [transforms[k] for k in positions]
+            between = names[positions[0] + 1:positions[-1]]
             after = names[positions[-1] + 1:]
-            alters = any(t not in _SAFE_AFTER_LOWERCASE for t in after)
+            alters = (
+                any(t not in _SAFE_AFTER_LOWERCASE for t in after)
+                or any(t not in _SAFE_BETWEEN_LOWERCASE for t in between)
+            )
             coverage, upper = _scan(d["operator_argument"])
             yield ruleid, lowered, coverage, _reads_value(chain, n), alters, upper
