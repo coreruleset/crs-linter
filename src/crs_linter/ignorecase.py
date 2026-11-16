@@ -31,7 +31,10 @@ _BACKREF = re.compile(r"\\(?:k<\w+>|k\{\w+\}|k'\w+'|g\{-?\w+\}|g-?\d+)")
 _NUMBERED = re.compile(r"\\([1-9]\d*)")
 _OCTAL_DIGITS = re.compile(r"[0-7]{1,3}")
 # \p{Lu}, \pL: property classes are case dependent
-_PROPERTY = re.compile(r"\\[pP](?:\{\^?\w+\}|\w)")
+_PROPERTY = re.compile(r"\\[pP](?:\{\^?([\w&]+)\}|(\w))")
+# \p{Lu}, \p{Ll}, \p{Lt}: PCRE2 before 10.45 matches them case-sensitively even
+# under (?i), so (?i)\p{Ll} does not match "A" there
+_CASE_PROPERTIES = frozenset(("lu", "ll", "lt", "lc", "l&"))
 # \x41, \x{41}, \012: the character they stand for decides whether they are a letter
 _HEX_ESCAPE = re.compile(r"\\x(?:\{([0-9a-fA-F]+)\}|([0-9a-fA-F]{0,2}))")
 _OCTAL_ESCAPE = re.compile(r"\\0([0-7]{0,2})")
@@ -53,32 +56,36 @@ _POSIX_LETTERS = {
 }
 
 
-def _escape(pattern: str, i: int, in_class: bool = False) -> Tuple[int, Optional[int], bool]:
-    """Return (end, code point, is property) for the escape sequence at `i`.
+def _escape(pattern: str, i: int, in_class: bool = False) -> Tuple[int, Optional[int], Optional[str]]:
+    """Return (end, code point, property) for the escape sequence at `i`.
+
+    The property is None for anything but \p and \P, "case" for a property
+    that names a case (\p{Lu}, \P{Ll}...) and "other" for the rest.
 
     The code point is None for escapes that do not stand for one character,
     such as \\d or \\w, whose meaning does not depend on case folding.
     """
     m = _PROPERTY.match(pattern, i)
     if m:
-        return m.end(), None, True
+        name = (m.group(1) or m.group(2)).lower().replace("_", "").replace(" ", "")
+        return m.end(), None, "case" if name in _CASE_PROPERTIES else "other"
     m = _HEX_ESCAPE.match(pattern, i)
     if m:
-        return m.end(), int(m.group(1) or m.group(2) or "0", 16), False
+        return m.end(), int(m.group(1) or m.group(2) or "0", 16), None
     m = _OCTAL_ESCAPE.match(pattern, i)
     if m:
-        return m.end(), int(m.group(1) or "0", 8), False
+        return m.end(), int(m.group(1) or "0", 8), None
     m = _CLASS_OCTAL_ESCAPE.match(pattern, i) if in_class else None
     if m:
-        return m.end(), int(m.group(1), 8), False
+        return m.end(), int(m.group(1), 8), None
     if pattern.startswith("\\c", i):
-        return i + 3, None, False
+        return i + 3, None, None
     ch = pattern[i + 1]
     if ch in _SIMPLE_ESCAPES:
-        return i + 2, _SIMPLE_ESCAPES[ch], False
+        return i + 2, _SIMPLE_ESCAPES[ch], None
     if in_class and ch == "b":
-        return i + 2, 8, False
-    return i + 2, (None if ch.isalnum() else ord(ch)), False
+        return i + 2, 8, None
+    return i + 2, (None if ch.isalnum() else ord(ch)), None
 
 
 def _ascii_letter(value: Optional[int]) -> Optional[str]:
@@ -92,9 +99,9 @@ def _ascii_letter(value: Optional[int]) -> Optional[str]:
     return None
 
 
-def _class_letters(body: str) -> Tuple[Set[str], Set[str], bool]:
-    """Return (upper-case letters, lower-case letters, other letters) of a
-    character class body, without its leading ^.
+def _class_letters(body: str) -> Tuple[Set[str], Set[str], bool, bool]:
+    """Return (upper-case letters, lower-case letters, other letters, case
+    property) of a character class body, without its leading ^.
 
     Ranges are expanded, so `[\\x40-\\x60]` holds A-Z. "other letters" is set
     for non-ASCII characters, properties and posix classes whose case
@@ -102,7 +109,7 @@ def _class_letters(body: str) -> Tuple[Set[str], Set[str], bool]:
     """
     upper: Set[str] = set()
     lower: Set[str] = set()
-    other = False
+    other = case_property = False
     # each item is a code point, a "-" that may form a range, or None for a set
     items: List[Tuple[Optional[int], bool]] = []
     i, n = 0, len(body)
@@ -117,7 +124,8 @@ def _class_letters(body: str) -> Tuple[Set[str], Set[str], bool]:
             i += 2
         elif c == "\\" and i + 1 < n:
             i, value, prop = _escape(body, i, in_class=True)
-            other = other or prop
+            other = other or prop is not None
+            case_property = case_property or prop == "case"
             items.append((value, False))
         elif c == "[" and _POSIX_CLASS.match(body, i):
             m = _POSIX_CLASS.match(body, i)
@@ -154,7 +162,7 @@ def _class_letters(body: str) -> Tuple[Set[str], Set[str], bool]:
                 upper.add(chr(cp))
             elif chr(cp) in _LOWER:
                 lower.add(chr(cp))
-    return upper, lower, other
+    return upper, lower, other, case_property
 
 
 def _class_end(pattern: str, i: int) -> int:
@@ -189,10 +197,12 @@ def ignorecase_coverage(pattern: str) -> Coverage:
 
 
 def dead_uppercase(pattern: str) -> bool:
-    """True when the pattern has an upper-case letter outside (?i) that cannot
-    match lowercased input, such as `FOO` or `[A-Z]`. Adding (?i) to such a
-    pattern makes it match more, so it is not a plain replacement for
-    t:lowercase. A class with both cases, such as `[A-Za-z]`, does not count."""
+    """True when part of the pattern outside (?i) treats the two cases of a
+    letter differently: an upper-case letter that lowercased input never has,
+    such as `FOO`, `[A-Z]`, `[Ab]` or `[^A]`, or a case property such as
+    `\\p{Lu}`. Replacing t:lowercase with (?i) changes which inputs such a
+    pattern matches. A class with both cases, such as `[A-Za-z]`, does not
+    count."""
     return _scan(pattern)[1]
 
 
@@ -204,11 +214,12 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
     stack: List[Tuple[bool, bool]] = []
     i, n = 0, len(pattern)
 
-    def letter(dead: bool = False):
+    def letter(dead: bool = False, case_property: bool = False):
         """Count a letter atom; `dead` when, without (?i), it holds an
-        upper-case letter whose lower-case form it does not also hold."""
+        upper-case letter whose lower-case form it does not also hold. A case
+        property is never covered, since (?i) may not apply to it."""
         nonlocal covered, uncovered, upper
-        if ignorecase:
+        if ignorecase and not case_property:
             covered += 1
         else:
             uncovered += 1
@@ -260,7 +271,9 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
             # \d, \w and \b do not depend on case folding, \x61 and \p{Lu} do
             i, value, prop = _escape(pattern, i)
             ch = _ascii_letter(value)
-            if prop or ch:
+            if prop == "case":
+                letter(dead=True, case_property=True)
+            elif prop or ch:
                 letter(ch is not None and ch in _UPPER)
             continue
 
@@ -276,8 +289,10 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
             # its lower-case form in the class
             # a class that holds both forms of each of its letters, such as
             # [0-9A-Z_a-z], matches the same with or without (?i)
-            upper_letters, lower_letters, other = _class_letters(body)
-            if other or {u.lower() for u in upper_letters} != lower_letters:
+            upper_letters, lower_letters, other, case_property = _class_letters(body)
+            if case_property:
+                letter(dead=True, case_property=True)
+            elif other or {u.lower() for u in upper_letters} != lower_letters:
                 letter(any(u.lower() not in lower_letters for u in upper_letters))
             i = end
             continue

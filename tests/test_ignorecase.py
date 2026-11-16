@@ -43,6 +43,12 @@ from crs_linter.ignorecase import Coverage, dead_uppercase, ignorecase_coverage
     ("^[\\x40-\\x60](?i)a$", Coverage.PARTIAL),  # the range holds A-Z
     ("[!-~](?i)a", Coverage.FULL),  # the range holds both cases of every letter
     ("[0-\\x5a](?i)a", Coverage.PARTIAL),
+    ("[(?i)]foo", Coverage.NONE),  # a class, not a flag
+    ("(?i)\\p{Ll}", Coverage.NONE),  # PCRE2 before 10.45 does not fold case properties
+    ("(?i)[\\p{Lu}0-9]", Coverage.NONE),
+    ("(?i)\\P{lu}", Coverage.NONE),
+    ("(?i)\\p{L}", Coverage.FULL),
+    ("(?i)\\p{Ll}a", Coverage.PARTIAL),
     ("(?-i)foo", Coverage.NONE),
     ("foo\\\\(?i)", Coverage.NONE),  # an escaped backslash, then a real flag with nothing after it
     ("(?x)foo # (?i) note", Coverage.NONE),  # the flag is inside an extended-mode comment
@@ -81,7 +87,6 @@ def test_ignorecase_coverage(pattern, expected):
     ("foo", False),
     ("[0-9A-Z_a-z]+", False),
     ("[A-z]", False),
-    ("\\p{Lu}", False),
     ("(a)\\1", False),
     ("^[Ab]$", True),  # (?i) would let "a" in
     ("^[^A]+$", True),  # (?i) would keep "a" out
@@ -89,6 +94,8 @@ def test_ignorecase_coverage(pattern, expected):
     ("[[:upper:]]", True),
     ("[[:alpha:]]", False),
     ("[Aa]", False),
+    ("\\p{Lu}", True),
+    ("\\p{L}", False),
 ])
 def test_dead_uppercase(pattern, expected):
     assert dead_uppercase(pattern) is expected

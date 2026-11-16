@@ -336,11 +336,12 @@ def test_rx_lowercase_transformations_and_reads(run_linter, rule, expected_count
 
 
 @pytest.mark.parametrize("pattern,hint", [
-    ("FOO", "upper-case letters in the pattern never match after t:lowercase"),
-    ("^[A-Z]+$", "upper-case letters in the pattern never match after t:lowercase"),
+    ("FOO", "(?i) may change which inputs match"),
+    ("^[A-Z]+$", "(?i) may change which inputs match"),
     ("^[0-9A-Z_a-z]+x$", "use the (?i) flag instead"),
-    ("^[Ab]$", "upper-case letters in the pattern never match after t:lowercase"),
-    ("^[^A]+$", "upper-case letters in the pattern never match after t:lowercase"),
+    ("^[Ab]$", "(?i) may change which inputs match"),
+    ("^[^A]+$", "(?i) may change which inputs match"),
+    ("^\\p{Lu}+$", "(?i) may change which inputs match"),
     ("(?i:foo)bar", "put the whole pattern under (?i)"),
 ])
 def test_rx_lowercase_hint(run_linter, pattern, hint):
