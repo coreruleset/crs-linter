@@ -60,7 +60,12 @@ from crs_linter.ignorecase import Coverage, dead_uppercase, ignorecase_coverage
     ("\\101", Coverage.NONE),  # octal "A"
     ("(a)\\1", Coverage.NONE),
     ("(?i)(a)\\1", Coverage.FULL),
-    ("\\8(?i)a", Coverage.PARTIAL),  # \8 is always a backreference
+    ("(\\d)\\1", Coverage.NOLETTERS),  # the group has no letter, so neither has \1
+    ("(\\d)\\k<1>x", Coverage.NONE),
+    ("^%{TX.ALLOWED}$", Coverage.NONE),  # a macro may hold letters
+    ("(?i)^%{TX.ALLOWED}$", Coverage.FULL),
+    ("^%{tx.allowed}(?i)a$", Coverage.PARTIAL),
+    ("(?i:(a))\\8(?i)b", Coverage.PARTIAL),  # \8 is always a backreference
     ("[^a-f]", Coverage.NONE),
     ("^[0-9]+$", Coverage.NOLETTERS),
     ("\\d+\\.\\w", Coverage.NOLETTERS),
@@ -88,6 +93,7 @@ def test_ignorecase_coverage(pattern, expected):
     ("[0-9A-Z_a-z]+", False),
     ("[A-z]", False),
     ("(a)\\1", False),
+    ("^%{TX.ALLOWED}$", False),  # upper case in a macro name is not in the pattern
     ("^[Ab]$", True),  # (?i) would let "a" in
     ("^[^A]+$", True),  # (?i) would keep "a" out
     ("[\\x40-\\x60]", True),

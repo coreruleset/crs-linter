@@ -40,6 +40,9 @@ _HEX_ESCAPE = re.compile(r"\\x(?:\{([0-9a-fA-F]+)\}|([0-9a-fA-F]{0,2}))")
 _OCTAL_ESCAPE = re.compile(r"\\0([0-7]{0,2})")
 # inside a character class \101 is always octal
 _CLASS_OCTAL_ESCAPE = re.compile(r"\\([1-7][0-7]{0,2})")
+# %{tx.allowed}: ModSecurity expands macros before compiling the pattern, so
+# what the name says about case is unknown
+_MACRO = re.compile(r"%\{[^}]*\}")
 _POSIX_CLASS = re.compile(r"\[:(\^?)(\w+):\]")
 # \n, \t... and, inside a class, \b (backspace)
 _SIMPLE_ESCAPES = {"a": 7, "e": 27, "f": 12, "n": 10, "r": 13, "t": 9}
@@ -59,8 +62,8 @@ _POSIX_LETTERS = {
 def _escape(pattern: str, i: int, in_class: bool = False) -> Tuple[int, Optional[int], Optional[str]]:
     """Return (end, code point, property) for the escape sequence at `i`.
 
-    The property is None for anything but \p and \P, "case" for a property
-    that names a case (\p{Lu}, \P{Ll}...) and "other" for the rest.
+    The property is None for anything but \\p and \\P, "case" for a property
+    that names a case (\\p{Lu}, \\P{Ll}...) and "other" for the rest.
 
     The code point is None for escapes that do not stand for one character,
     such as \\d or \\w, whose meaning does not depend on case folding.
@@ -225,6 +228,12 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
             uncovered += 1
             upper = upper or dead
 
+    def backref():
+        """Count a backreference as a letter, unless no letter came before it:
+        then the group it repeats has none either, as in (\\d)\\1."""
+        if covered or uncovered:
+            letter()
+
     while i < n:
         c = pattern[i]
 
@@ -250,7 +259,7 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
                 continue
             m = _BACKREF.match(pattern, i)
             if m:
-                letter()
+                backref()
                 i = m.end()
                 continue
             m = _NUMBERED.match(pattern, i)
@@ -259,7 +268,7 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
                 # not above the number of groups so far; octal otherwise
                 digits = m.group(1)
                 if int(digits) < 10 or digits[0] in "89" or int(digits) <= groups:
-                    letter()
+                    backref()
                     i = m.end()
                 else:
                     octal = _OCTAL_DIGITS.match(digits).group()
@@ -339,6 +348,15 @@ def _scan(pattern: str) -> Tuple[Coverage, bool]:
             i = m.end() if m else i + 1
             continue
 
+        if c == "%":
+            m = _MACRO.match(pattern, i)
+            if m:
+                # the expanded value may hold letters, but not knowingly
+                # upper-case ones
+                letter()
+                i = m.end()
+                continue
+
         if c.isalpha():
             letter(c in _UPPER)
         i += 1
@@ -375,24 +393,35 @@ _MATCHED_REF = re.compile(r"%\{matched_vars?\}", re.IGNORECASE)
 _LOG_ACTIONS = frozenset(("logdata", "msg", "tag"))
 
 
-def _reads(link, tx: bool, matched: bool) -> bool:
-    """True when the link reads TX:N (if `tx`) or MATCHED_VAR(S) (if `matched`).
+def _mentions(texts, tx: bool, matched: bool) -> bool:
+    return any((tx and _TX_REF.search(t)) or (matched and _MATCHED_REF.search(t)) for t in texts)
 
-    Reads in logdata and msg do not count: they only change what is logged.
-    """
+
+def _reads_before_match(link, tx: bool, matched: bool) -> bool:
+    """True when the link's variables or operator argument read TX:N (if `tx`)
+    or MATCHED_VAR(S) (if `matched`). These are read before the link's own
+    capture replaces TX:N."""
     for v in link.get("variables", ()):
         name = v.get("variable", "").upper()
         if matched and name in ("MATCHED_VAR", "MATCHED_VARS"):
             return True
         if tx and name == "TX" and str(v.get("variable_part", "")).isdigit():
             return True
-    texts = [link.get("operator_argument") or ""]
-    texts += [
+    return _mentions([link.get("operator_argument") or ""], tx, matched)
+
+
+def _reads_in_actions(link, tx: bool, matched: bool) -> bool:
+    """True when the link's actions read %{tx.N} (if `tx`) or
+    %{matched_var(s)} (if `matched`). These run after the link's own capture.
+
+    Reads in logdata and msg do not count: they only change what is logged.
+    """
+    texts = [
         str(a.get("act_arg") or "") + str(a.get("act_arg_val") or "")
         for a in link.get("actions", ())
         if a["act_name"] not in _LOG_ACTIONS
     ]
-    return any((tx and _TX_REF.search(t)) or (matched and _MATCHED_REF.search(t)) for t in texts)
+    return _mentions(texts, tx, matched)
 
 
 def _reads_value(chain, n: int) -> bool:
@@ -402,17 +431,24 @@ def _reads_value(chain, n: int) -> bool:
       %{tx.N} only holds something if the link captures
     - MATCHED_VAR(S) in the next link, which holds this link's match; later
       links see the match of the link before them
-    - TX:N in any later link, until another link captures and overwrites it
+    - TX:N in any later link, until another link captures and overwrites it;
+      a link that captures still reads the earlier TX:N in its variables and
+      operator argument, but its actions see its own capture
     """
-    link = chain[n]
-    captures = any(a["act_name"] == "capture" for a in link["actions"])
-    if _reads({"actions": link["actions"]}, tx=captures, matched=True):
+    def captures_in(link):
+        return any(a["act_name"] == "capture" for a in link["actions"])
+
+    captures = captures_in(chain[n])
+    if _reads_in_actions(chain[n], tx=captures, matched=True):
         return True
     for k in range(n + 1, len(chain)):
-        if _reads(chain[k], tx=captures, matched=(k == n + 1)):
+        matched = k == n + 1
+        if _reads_before_match(chain[k], tx=captures, matched=matched):
             return True
-        if any(a["act_name"] == "capture" for a in chain[k]["actions"]):
+        if captures_in(chain[k]):
             captures = False
+        if _reads_in_actions(chain[k], tx=captures, matched=matched):
+            return True
     return False
 
 

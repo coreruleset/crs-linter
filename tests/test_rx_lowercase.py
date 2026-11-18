@@ -285,6 +285,36 @@ SecRule ARGS "@rx bar" \\
         "t:none"''', 1, "TX:1 after another capture is not this rule's"),
 
     ('''SecRule ARGS "@rx foo" \\
+    "id:7216,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:none,t:lowercase,\\
+    chain"
+    SecRule ARGS "@rx (bar)" \\
+        "capture,setvar:tx.x=%{tx.1}"''', 1, "a link that captures reads its own TX:1 in its actions"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7217,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:none,t:lowercase,\\
+    chain"
+    SecRule TX:1 "@rx (bar)" \\
+        "capture,t:none"''', 0, "a link that captures still reads the earlier TX:1 as a variable"),
+
+    ('''SecRule ARGS "@rx foo" \\
+    "id:7218,\\
+    phase:1,\\
+    pass,\\
+    capture,\\
+    t:none,t:lowercase,\\
+    chain"
+    SecRule ARGS "@rx ^%{tx.0}$" \\
+        "capture,t:none"''', 0, "a link that captures still reads the earlier TX:0 in its operator argument"),
+
+    ('''SecRule ARGS "@rx foo" \\
     "id:7210,\\
     phase:1,\\
     pass,\\
@@ -343,6 +373,7 @@ def test_rx_lowercase_transformations_and_reads(run_linter, rule, expected_count
     ("^[^A]+$", "(?i) may change which inputs match"),
     ("^\\p{Lu}+$", "(?i) may change which inputs match"),
     ("(?i:foo)bar", "put the whole pattern under (?i)"),
+    ("^%{TX.ALLOWED}$", "use the (?i) flag instead"),
 ])
 def test_rx_lowercase_hint(run_linter, pattern, hint):
     rule = f'''SecRule ARGS "@rx {pattern}" \\
