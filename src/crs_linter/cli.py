@@ -10,6 +10,7 @@ import os.path
 
 
 from crs_linter.linter import Linter
+from crs_linter.rules_metadata import get_registered_rules
 from crs_linter.logger import Logger, Output
 from crs_linter.utils import *
 
@@ -42,7 +43,7 @@ def _get_string_list(config, key, filename):
 
 
 def load_config(filename):
-    """Load approved_tags, filename_exclusions and test_exclusions from a TOML config file"""
+    """Load approved_tags, filename_exclusions, test_exclusions and enable_checks from a TOML config file"""
     try:
         with open(filename, "rb") as fp:
             config = tomllib.load(fp)
@@ -57,6 +58,7 @@ def load_config(filename):
         _get_string_list(config, "approved_tags", filename),
         _get_string_list(config, "filename_exclusions", filename),
         _get_string_list(config, "test_exclusions", filename),
+        _get_string_list(config, "enable_checks", filename),
     )
 
 
@@ -266,10 +268,21 @@ def main():
         args.directory, args.version, head_ref, commit_message
     )
     test_exclusion_list_from_config = None
+    enabled_checks = []
     if args.config is not None:
-        tags, filename_tags_exclusions, test_exclusion_list_from_config = load_config(
+        tags, filename_tags_exclusions, test_exclusion_list_from_config, enabled_checks = load_config(
             args.config
         )
+        rules = {r.name: r for r in get_registered_rules()}
+        opt_in = {name for name, r in rules.items() if r.opt_in}
+        unknown = sorted(set(enabled_checks) - set(rules))
+        always_on = sorted(set(enabled_checks) & set(rules) - opt_in)
+        if unknown:
+            logger.error(f"Config file: {args.config}: unknown enable_checks {unknown}; opt-in checks are: {sorted(opt_in)}")
+            sys.exit(1)
+        if always_on:
+            logger.error(f"Config file: {args.config}: enable_checks {always_on} are not opt-in checks, they always run; opt-in checks are: {sorted(opt_in)}")
+            sys.exit(1)
     else:
         tags = get_lines_from_file(args.tagslist)
         # Check all files by default
@@ -321,7 +334,8 @@ def main():
             test_cases=test_cases,
             exclusion_list=test_exclusion_list,
             crs_version=crs_version,
-            filename_tag_exclusions=filename_tags_exclusions
+            filename_tag_exclusions=filename_tags_exclusions,
+            enabled_checks=enabled_checks,
         ))
 
         # Group problems by rule type for better logging

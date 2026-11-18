@@ -22,6 +22,7 @@ from .rules import (
     pass_nolog,
     pl_consistency,
     rule_tests,
+    rx_lowercase,
     standalone_txn,
     variables_usage,
     version
@@ -70,7 +71,7 @@ class Linter:
             filename_tag_exclusions=filename_tag_exclusions
         )
 
-    def run_checks(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None):
+    def run_checks(self, tagslist=None, test_cases=None, exclusion_list=None, crs_version=None, filename_tag_exclusions=None, enabled_checks=None):
         """
         Run all linting checks and yield LintProblem objects.
         This is the main entry point for the linter.
@@ -84,6 +85,8 @@ class Linter:
 
         # Run all rule checks generically and apply exemptions
         for rule_instance, args, kwargs, condition in rule_configs:
+            if rule_instance.opt_in and rule_instance.name not in (enabled_checks or ()):
+                continue
             if condition is None or condition:  # Run if no condition or condition is True
                 try:
                     for problem in rule_instance.check(*args, **kwargs):
